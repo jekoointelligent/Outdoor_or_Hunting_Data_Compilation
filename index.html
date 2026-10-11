@@ -1,0 +1,503 @@
+<title>布料需求熱度圖</title>
+<style>
+/* 版面：單欄，上方篩選列，下方兩張圖卡（年度熱度圖 → 年×月月曆圖），最後是表格檢視。
+   色彩：單一藍色系由淺到深表示量的大小（量值 = 順序資料，不用多色）。
+   字體：系統無襯線 + 繁中字體，不載入外部字型。 */
+:root {
+  --font: system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+  --bg: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.10);
+  --hl: #f1f1ed;
+  --zero: #efeee9;
+  --ring: #0b0b0b;
+  --s0: #cde2fb; --s1: #9ec5f4; --s2: #6da7ec; --s3: #3987e5; --s4: #256abf; --s5: #184f95; --s6: #0d366b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255, 255, 255, 0.10); --hl: #232322; --zero: #262625; --ring: #ffffff;
+    --s0: #0d366b; --s1: #104281; --s2: #184f95; --s3: #1c5cab; --s4: #2a78d6; --s5: #5598e7; --s6: #9ec5f4;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255, 255, 255, 0.10); --hl: #232322; --zero: #262625; --ring: #ffffff;
+  --s0: #0d366b; --s1: #104281; --s2: #184f95; --s3: #1c5cab; --s4: #2a78d6; --s5: #5598e7; --s6: #9ec5f4;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.55; }
+.wrap { max-width: 1040px; margin-inline: auto; padding-inline: 16px; padding-block: 28px 48px; display: flex; flex-direction: column; gap: 20px; }
+header { display: flex; flex-direction: column; gap: 6px; }
+.eyebrow { font-size: 12px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+h1 { margin: 0; font-size: 26px; line-height: 1.25; font-weight: 650; text-wrap: balance; }
+.lede { margin: 0; color: var(--ink2); max-width: 62ch; }
+.filters { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; }
+.group { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.group > span { font-size: 12px; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 2px; gap: 2px; flex-wrap: wrap; }
+.seg button { font: inherit; font-size: 13px; color: var(--ink2); background: transparent; border: 0; border-radius: 6px; padding: 5px 11px; cursor: pointer; }
+.seg button:hover { background: var(--hl); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.seg button:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--s3); outline-offset: 2px; }
+.help { border-left: 3px solid var(--axis); padding: 2px 0 2px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.help h2 { margin: 0; font-size: 14px; font-weight: 650; }
+.help dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 13px; }
+.help dt { color: var(--ink); font-weight: 600; }
+.help dd { margin: 0; color: var(--ink2); max-width: 70ch; }
+@media (max-width: 520px) { .help dl { grid-template-columns: 1fr; gap: 0; } .help dd { margin-bottom: 8px; } }
+.concl { display: flex; flex-direction: column; gap: 14px; padding-top: 8px; border-top: 1px solid var(--grid); min-width: 0; }
+.concl h2 { margin: 0; font-size: 20px; font-weight: 650; }
+.concl-lede { margin: 0; font-size: 15px; color: var(--ink); max-width: 62ch; text-wrap: pretty; }
+.concl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.concl-grid article { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.concl h3 { margin: 0 0 4px; font-size: 14px; font-weight: 650; }
+.concl-grid p { margin: 0; font-size: 13px; color: var(--ink2); }
+.concl-grid b { color: var(--ink); font-weight: 600; }
+.concl-sub { margin: 4px 0 0 !important; font-size: 15px !important; }
+.concl-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ink2); max-width: 70ch; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 16px 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.card h2 { margin: 0; font-size: 16px; font-weight: 650; }
+.card .sub { margin: 0; color: var(--ink2); font-size: 13px; max-width: 70ch; }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; align-items: flex-end; }
+select { font: inherit; font-size: 13px; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; }
+.scroll { overflow-x: auto; min-width: 0; }
+svg { display: block; }
+svg text { font-family: var(--font); }
+.t-muted { fill: var(--muted); font-size: 11px; }
+.t-ink2 { fill: var(--ink2); font-size: 13px; }
+.t-ink { fill: var(--ink); font-size: 13px; font-weight: 650; }
+.t-num { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.cell { cursor: pointer; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; font-size: 12px; color: var(--ink2); }
+.ramp { display: inline-flex; gap: 2px; align-items: center; }
+.ramp i { width: 18px; height: 10px; border-radius: 2px; display: inline-block; }
+.sw { width: 14px; height: 10px; border-radius: 2px; display: inline-block; vertical-align: -1px; margin-right: 5px; }
+.tip { position: fixed; z-index: 10; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16); font-size: 12px; min-width: 150px; max-width: 240px; }
+.tip[hidden] { display: none; }
+.tip .tt { color: var(--ink2); margin-bottom: 2px; }
+.tip .tv { font-size: 18px; font-weight: 650; line-height: 1.25; }
+.tip .tr { color: var(--ink2); display: flex; justify-content: space-between; gap: 12px; }
+details { border-top: 1px solid var(--grid); padding-top: 10px; }
+summary { cursor: pointer; color: var(--ink2); font-size: 13px; }
+table { border-collapse: collapse; font-size: 13px; width: 100%; margin-top: 8px; }
+th, td { text-align: right; padding: 5px 10px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+.note { color: var(--muted); font-size: 12px; margin: 0; max-width: 80ch; }
+@media (max-width: 520px) { h1 { font-size: 22px; } .group { flex-wrap: wrap; } }
+@media (prefers-reduced-motion: no-preference) { .cell { transition: opacity .12s; } }
+</style>
+
+<main class="wrap">
+  <header>
+    <div class="eyebrow">24hourcampfire · BackpackingLight</div>
+    <h1>布料需求熱度圖</h1>
+    <p class="lede" id="lede"></p>
+  </header>
+
+  <div class="filters" role="group" aria-label="篩選">
+    <div class="group"><span>來源</span><div class="seg" data-k="src"></div></div>
+    <div class="group"><span>項目</span><div class="seg" data-k="kind"></div></div>
+    <div class="group"><span>指標</span><div class="seg" data-k="metric"></div></div>
+    <div class="group"><span>色階</span><div class="seg" data-k="scale"></div></div>
+  </div>
+
+  <aside class="help" aria-label="圖表說明">
+    <h2>怎麼讀這張圖</h2>
+    <dl>
+      <dt>顏色深淺</dt>
+      <dd>顏色越醒目，代表討論越多。淺色模式下是越深越多；深色模式下是越亮、越淺越多。圖例會隨模式自動對應，以圖例為準。</dd>
+      <dt>色階：共用</dt>
+      <dd>所有格子用同一把尺，不同項目之間可以直接比較（例如防水比靜音多）。冷門項目整列會偏淡。</dd>
+      <dt>色階：各列</dt>
+      <dd>每一列用自己的最大值當尺，適合看單一項目在哪幾年變熱。不同列的顏色不能互相比較。</dd>
+      <dt>變淡的格子</dt>
+      <dd>當年貼文太少（年度 30 則以下、月份 10 則以下），比率容易失真，所以降低顯示強度。</dd>
+    </dl>
+  </aside>
+
+  <section class="card" aria-labelledby="h-year">
+    <div class="head">
+      <div>
+        <h2 id="h-year">年度熱度</h2>
+        <p class="sub" id="sub-year"></p>
+      </div>
+    </div>
+    <div class="scroll"><div id="year-chart"></div></div>
+    <div class="legend" id="legend-year"></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-month">
+    <div class="head">
+      <div>
+        <h2 id="h-month">月份分布</h2>
+        <p class="sub" id="sub-month"></p>
+      </div>
+      <label class="group"><span>項目</span><select id="item" aria-label="選擇項目"></select></label>
+    </div>
+    <div class="scroll"><div id="month-chart"></div></div>
+    <div class="legend" id="legend-month"></div>
+    <details>
+      <summary>以表格檢視這個項目</summary>
+      <div class="scroll"><table id="tbl"></table></div>
+    </details>
+  </section>
+
+  <section class="concl" aria-labelledby="h-concl">
+    <h2 id="h-concl">結論</h2>
+    <p class="concl-lede">戶外布料的需求集中在三件事：保暖、防水、輕量。三者不只被討論最多，抱怨也最多，代表現有產品還沒有完全滿足。</p>
+    <div class="concl-grid">
+      <article>
+        <h3>需求排序</h3>
+        <p>保暖、防水、輕量是前三名，其次是透氣排汗。抱怨最集中在輕量（132 句）、保暖（83 句）和防水（81 句）。抱怨最多的產品是帳篷、背包和鞋靴。</p>
+      </article>
+      <article>
+        <h3>兩個社群要的不一樣</h3>
+        <p>狩獵社群偏重防水與保暖（每百則各 5.0 和 4.6 次），輕量只有 1.8 次，靜音幾乎沒人提。超輕量登山社群的輕量高達 14.4 次，透氣排汗 11.2 次。前者要的是濕冷環境下撐得住，後者要的是重量和排汗。</p>
+      </article>
+      <article>
+        <h3>各類產品的核心需求</h3>
+        <p><b>帳篷</b>要防水加輕量，材料集中在 Dyneema 和尼龍。<b>睡袋</b>幾乎只談保暖，以羽絨為主。<b>背包</b>看重輕量、可收納和耐磨。<b>外層衣褲</b>以防水為先，其次是保暖，常見羽絨、薄膜和軟殼。<b>內層</b>要保暖也要透氣，以抓絨、聚酯和羊毛為主。<b>鞋靴</b>保暖與防水並重。</p>
+      </article>
+      <article>
+        <h3>羊毛與合成纖維</h3>
+        <p>狩獵社群較常提羊毛（2.4 次，聚酯 0.9 次）。超輕量社群相反，聚酯和尼龍各約 7 次，高於羊毛的 4.4 次。兩邊的取捨都是羊毛的保暖與抗味，對上合成纖維的輕和快乾。</p>
+      </article>
+      <article>
+        <h3>防水膜的壽命</h3>
+        <p>Gore-Tex 在狩獵社群提及較多，但常見的抱怨是用了幾年後漏水，例如「每一雙 GoreTex 靴最後都會漏水」。超輕量社群則更常談 eVent、Pertex 等其他薄膜。防水不只要夠防水，還要能長期維持。</p>
+      </article>
+      <article>
+        <h3>Dyneema 正在上升</h3>
+        <p>Dyneema（DCF）在超輕量社群每百則出現 4.4 次，近三年是前一個階段的 4 倍以上，主要用在帳篷。其他材料的年度變化不明顯，早期年份的比率偏高是討論串性質造成的，不代表需求下降。</p>
+      </article>
+    </div>
+    <h3 class="concl-sub">對布料開發的意涵</h3>
+    <ul class="concl-list">
+      <li>能長期維持防水的透氣膜或塗層，是兩個社群共同、且尚未解決的痛點。</li>
+      <li>輕量化的抱怨最多，兼顧輕量與耐磨的尼龍、複合布料有空間，尤其是帳篷和背包。</li>
+      <li>中層需要同時保暖、透氣和快乾，目前常見的是抓絨與聚酯，羊毛則被認為抗味較好但較慢乾。</li>
+      <li>靜音布料的需求在這兩個社群沒有出現，要判斷這個需求，需要弓獵等其他社群的資料。</li>
+    </ul>
+  </section>
+
+  <p class="note" id="note"></p>
+</main>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+const DATA = {"posts":[["24hourcampfire","2000-09",1],["24hourcampfire","2000-10",2],["24hourcampfire","2000-11",1],["24hourcampfire","2000-12",2],["24hourcampfire","2001-01",1],["24hourcampfire","2001-02",3],["24hourcampfire","2001-12",2],["24hourcampfire","2002-01",2],["24hourcampfire","2002-02",12],["24hourcampfire","2002-03",1],["24hourcampfire","2002-07",6],["24hourcampfire","2002-08",4],["24hourcampfire","2002-10",2],["24hourcampfire","2002-12",1],["24hourcampfire","2003-01",6],["24hourcampfire","2003-02",3],["24hourcampfire","2003-03",2],["24hourcampfire","2003-04",1],["24hourcampfire","2003-05",1],["24hourcampfire","2003-07",1],["24hourcampfire","2003-08",10],["24hourcampfire","2003-09",1],["24hourcampfire","2003-12",5],["24hourcampfire","2004-01",2],["24hourcampfire","2004-02",2],["24hourcampfire","2004-04",3],["24hourcampfire","2004-05",1],["24hourcampfire","2004-08",3],["24hourcampfire","2004-10",4],["24hourcampfire","2004-11",3],["24hourcampfire","2004-12",3],["24hourcampfire","2005-02",15],["24hourcampfire","2005-03",1],["24hourcampfire","2005-05",9],["24hourcampfire","2005-06",10],["24hourcampfire","2005-07",6],["24hourcampfire","2005-08",5],["24hourcampfire","2005-11",3],["24hourcampfire","2006-02",8],["24hourcampfire","2006-03",4],["24hourcampfire","2006-04",1],["24hourcampfire","2006-05",1],["24hourcampfire","2006-06",3],["24hourcampfire","2006-10",3],["24hourcampfire","2006-11",33],["24hourcampfire","2006-12",22],["24hourcampfire","2007-03",3],["24hourcampfire","2007-07",5],["24hourcampfire","2007-08",1],["24hourcampfire","2007-10",4],["24hourcampfire","2007-12",16],["24hourcampfire","2008-01",42],["24hourcampfire","2008-02",84],["24hourcampfire","2008-03",4],["24hourcampfire","2008-04",3],["24hourcampfire","2008-05",1],["24hourcampfire","2008-08",1],["24hourcampfire","2008-09",6],["24hourcampfire","2008-10",2],["24hourcampfire","2008-12",3],["24hourcampfire","2009-06",2],["24hourcampfire","2009-09",3],["24hourcampfire","2009-11",1],["24hourcampfire","2010-02",1],["24hourcampfire","2010-05",24],["24hourcampfire","2010-06",1],["24hourcampfire","2010-07",38],["24hourcampfire","2010-08",9],["24hourcampfire","2010-09",7],["24hourcampfire","2011-02",7],["24hourcampfire","2011-03",2],["24hourcampfire","2011-04",5],["24hourcampfire","2011-06",1],["24hourcampfire","2011-07",3],["24hourcampfire","2011-08",5],["24hourcampfire","2011-10",4],["24hourcampfire","2011-11",3],["24hourcampfire","2011-12",3],["24hourcampfire","2012-01",1],["24hourcampfire","2012-02",3],["24hourcampfire","2012-03",5],["24hourcampfire","2012-04",14],["24hourcampfire","2012-05",2],["24hourcampfire","2012-06",3],["24hourcampfire","2012-07",2],["24hourcampfire","2012-11",1],["24hourcampfire","2013-10",5],["24hourcampfire","2013-11",10],["24hourcampfire","2013-12",3],["24hourcampfire","2014-01",3],["24hourcampfire","2014-04",19],["24hourcampfire","2014-05",2],["24hourcampfire","2014-06",2],["24hourcampfire","2014-10",10],["24hourcampfire","2014-11",2],["24hourcampfire","2014-12",2],["24hourcampfire","2015-02",1],["24hourcampfire","2015-04",3],["24hourcampfire","2015-05",2],["24hourcampfire","2015-06",2],["24hourcampfire","2015-07",1],["24hourcampfire","2015-09",1],["24hourcampfire","2015-12",13],["24hourcampfire","2016-01",9],["24hourcampfire","2016-03",1],["24hourcampfire","2016-04",1],["24hourcampfire","2017-01",4],["24hourcampfire","2017-02",2],["24hourcampfire","2017-03",4],["24hourcampfire","2017-04",4],["24hourcampfire","2017-05",4],["24hourcampfire","2017-06",1],["24hourcampfire","2017-09",1],["24hourcampfire","2017-11",1],["24hourcampfire","2018-01",2],["24hourcampfire","2018-02",2],["24hourcampfire","2018-10",1],["24hourcampfire","2018-11",1],["24hourcampfire","2019-04",3],["24hourcampfire","2019-11",1],["24hourcampfire","2020-01",193],["24hourcampfire","2020-02",22],["24hourcampfire","2020-05",5],["24hourcampfire","2020-06",1],["24hourcampfire","2020-08",4],["24hourcampfire","2020-09",2],["24hourcampfire","2020-10",3],["24hourcampfire","2020-11",7],["24hourcampfire","2020-12",4],["24hourcampfire","2021-01",17],["24hourcampfire","2021-02",3],["24hourcampfire","2021-03",2],["24hourcampfire","2021-04",1],["24hourcampfire","2021-05",1],["24hourcampfire","2021-06",10],["24hourcampfire","2021-07",9],["24hourcampfire","2021-08",2],["24hourcampfire","2021-09",6],["24hourcampfire","2021-10",3],["24hourcampfire","2021-11",4],["24hourcampfire","2021-12",8],["24hourcampfire","2022-01",1],["24hourcampfire","2022-02",4],["24hourcampfire","2022-03",3],["24hourcampfire","2022-04",3],["24hourcampfire","2022-09",2],["24hourcampfire","2022-10",11],["24hourcampfire","2022-11",3],["24hourcampfire","2022-12",16],["24hourcampfire","2023-01",10],["24hourcampfire","2023-02",2],["24hourcampfire","2023-03",6],["24hourcampfire","2023-04",1],["24hourcampfire","2023-05",4],["24hourcampfire","2023-06",2],["24hourcampfire","2023-07",2],["24hourcampfire","2023-08",2],["24hourcampfire","2023-09",13],["24hourcampfire","2023-10",18],["24hourcampfire","2023-11",13],["24hourcampfire","2023-12",19],["24hourcampfire","2024-01",10],["24hourcampfire","2024-02",6],["24hourcampfire","2024-03",4],["24hourcampfire","2024-04",4],["24hourcampfire","2024-05",41],["24hourcampfire","2024-06",23],["24hourcampfire","2024-07",9],["24hourcampfire","2024-08",8],["24hourcampfire","2024-09",21],["24hourcampfire","2024-10",14],["24hourcampfire","2024-11",28],["24hourcampfire","2024-12",9],["24hourcampfire","2025-01",23],["24hourcampfire","2025-02",8],["24hourcampfire","2025-03",7],["24hourcampfire","2025-04",4],["24hourcampfire","2025-05",2],["24hourcampfire","2025-06",13],["24hourcampfire","2025-07",5],["24hourcampfire","2025-08",4],["24hourcampfire","2025-09",19],["24hourcampfire","2025-10",221],["24hourcampfire","2025-11",113],["24hourcampfire","2025-12",97],["24hourcampfire","2026-01",173],["24hourcampfire","2026-02",87],["24hourcampfire","2026-03",40],["24hourcampfire","2026-04",29],["24hourcampfire","2026-05",18],["24hourcampfire","2026-06",21],["24hourcampfire","2026-07",17],["24hourcampfire","2026-08",26],["24hourcampfire","2026-09",25],["24hourcampfire","2026-10",1],["backpackinglight","2007-03",14],["backpackinglight","2008-11",11],["backpackinglight","2009-05",2],["backpackinglight","2009-07",11],["backpackinglight","2009-10",6],["backpackinglight","2009-12",1],["backpackinglight","2010-04",17],["backpackinglight","2010-05",1],["backpackinglight","2010-07",1],["backpackinglight","2010-08",1],["backpackinglight","2011-05",11],["backpackinglight","2011-07",8],["backpackinglight","2011-08",3],["backpackinglight","2011-10",2],["backpackinglight","2013-07",1],["backpackinglight","2013-08",3],["backpackinglight","2013-10",2],["backpackinglight","2014-06",3],["backpackinglight","2014-07",3],["backpackinglight","2014-08",12],["backpackinglight","2014-09",2],["backpackinglight","2014-10",8],["backpackinglight","2014-11",11],["backpackinglight","2014-12",9],["backpackinglight","2015-01",4],["backpackinglight","2015-03",74],["backpackinglight","2015-04",4],["backpackinglight","2015-05",26],["backpackinglight","2015-06",9],["backpackinglight","2015-07",10],["backpackinglight","2015-08",4],["backpackinglight","2015-09",3],["backpackinglight","2015-11",3],["backpackinglight","2016-01",1],["backpackinglight","2016-02",1],["backpackinglight","2016-08",10],["backpackinglight","2016-09",1],["backpackinglight","2016-10",3],["backpackinglight","2016-11",1],["backpackinglight","2016-12",10],["backpackinglight","2017-01",6],["backpackinglight","2017-02",1],["backpackinglight","2017-04",1],["backpackinglight","2017-06",1],["backpackinglight","2017-07",6],["backpackinglight","2017-08",7],["backpackinglight","2017-09",3],["backpackinglight","2017-11",1],["backpackinglight","2017-12",3],["backpackinglight","2018-03",9],["backpackinglight","2018-08",1],["backpackinglight","2018-11",12],["backpackinglight","2018-12",2],["backpackinglight","2019-01",8],["backpackinglight","2019-02",3],["backpackinglight","2019-04",1],["backpackinglight","2019-05",1],["backpackinglight","2019-06",8],["backpackinglight","2019-07",14],["backpackinglight","2019-10",7],["backpackinglight","2019-11",7],["backpackinglight","2019-12",71],["backpackinglight","2020-01",88],["backpackinglight","2020-02",12],["backpackinglight","2020-03",19],["backpackinglight","2020-04",9],["backpackinglight","2020-05",24],["backpackinglight","2020-08",35],["backpackinglight","2020-09",8],["backpackinglight","2020-10",14],["backpackinglight","2020-11",11],["backpackinglight","2020-12",37],["backpackinglight","2021-01",11],["backpackinglight","2021-02",1],["backpackinglight","2021-04",7],["backpackinglight","2021-05",46],["backpackinglight","2021-06",5],["backpackinglight","2021-09",29],["backpackinglight","2021-10",6],["backpackinglight","2021-11",9],["backpackinglight","2022-01",13],["backpackinglight","2022-04",1],["backpackinglight","2022-05",6],["backpackinglight","2022-06",9],["backpackinglight","2022-08",4],["backpackinglight","2022-09",2],["backpackinglight","2022-10",104],["backpackinglight","2022-11",32],["backpackinglight","2022-12",70],["backpackinglight","2023-01",143],["backpackinglight","2023-02",74],["backpackinglight","2023-03",34],["backpackinglight","2023-04",22],["backpackinglight","2023-05",5],["backpackinglight","2023-06",26],["backpackinglight","2023-07",2],["backpackinglight","2023-08",24],["backpackinglight","2023-09",15],["backpackinglight","2023-10",17],["backpackinglight","2023-11",36],["backpackinglight","2023-12",61],["backpackinglight","2024-01",49],["backpackinglight","2024-02",68],["backpackinglight","2024-03",22],["backpackinglight","2024-04",11],["backpackinglight","2024-05",51],["backpackinglight","2024-06",39],["backpackinglight","2024-07",6],["backpackinglight","2024-08",5],["backpackinglight","2024-09",48],["backpackinglight","2024-10",31],["backpackinglight","2024-11",89],["backpackinglight","2024-12",27],["backpackinglight","2025-01",76],["backpackinglight","2025-02",58],["backpackinglight","2025-03",11],["backpackinglight","2025-04",18],["backpackinglight","2025-05",11],["backpackinglight","2025-06",10],["backpackinglight","2025-07",32],["backpackinglight","2025-08",74],["backpackinglight","2025-09",39],["backpackinglight","2025-10",27],["backpackinglight","2025-11",57],["backpackinglight","2025-12",116],["backpackinglight","2026-01",94],["backpackinglight","2026-02",140],["backpackinglight","2026-03",153],["backpackinglight","2026-04",76],["backpackinglight","2026-05",46],["backpackinglight","2026-06",64],["backpackinglight","2026-07",43],["backpackinglight","2026-08",255],["backpackinglight","2026-09",132],["backpackinglight","2026-10",1]],"mentions":[["24hourcampfire","2000-09","material","Gore-Tex",2],["24hourcampfire","2000-09","material","抓絨",2],["24hourcampfire","2000-09","need","保暖",1],["24hourcampfire","2000-09","need","可收納",1],["24hourcampfire","2000-09","need","輕量",1],["24hourcampfire","2000-09","need","透氣/排汗",2],["24hourcampfire","2000-09","need","防水",3],["24hourcampfire","2000-09","need","靜音",1],["24hourcampfire","2001-12","need","防水",1],["24hourcampfire","2002-02","material","Gore-Tex",7],["24hourcampfire","2002-02","material","eVent/Pertex/其他薄膜",2],["24hourcampfire","2002-02","material","尼龍",1],["24hourcampfire","2002-02","material","抓絨",10],["24hourcampfire","2002-02","material","棉",1],["24hourcampfire","2002-02","material","橡膠/氯丁橡膠",4],["24hourcampfire","2002-02","need","保暖",4],["24hourcampfire","2002-02","need","耐磨/耐用",1],["24hourcampfire","2002-02","need","輕量",3],["24hourcampfire","2002-02","need","透氣/排汗",5],["24hourcampfire","2002-02","need","防水",16],["24hourcampfire","2002-02","need","靜音",1],["24hourcampfire","2002-07","material","Gore-Tex",2],["24hourcampfire","2002-07","material","皮革",2],["24hourcampfire","2002-07","need","保暖",2],["24hourcampfire","2002-07","need","耐磨/耐用",1],["24hourcampfire","2002-07","need","防水",3],["24hourcampfire","2002-08","material","Gore-Tex",2],["24hourcampfire","2002-08","material","皮革",2],["24hourcampfire","2002-08","need","保暖",1],["24hourcampfire","2002-08","need","舒適/柔軟",1],["24hourcampfire","2002-08","need","防水",3],["24hourcampfire","2003-03","material","皮革",1],["24hourcampfire","2003-03","need","防水",1],["24hourcampfire","2003-04","material","Gore-Tex",1],["24hourcampfire","2003-04","material","皮革",1],["24hourcampfire","2003-04","need","耐磨/耐用",1],["24hourcampfire","2003-04","need","防水",4],["24hourcampfire","2003-12","material","Gore-Tex",1],["24hourcampfire","2003-12","material","PrimaLoft/合成絨",1],["24hourcampfire","2003-12","material","橡膠/氯丁橡膠",1],["24hourcampfire","2003-12","need","保暖",2],["24hourcampfire","2003-12","need","防水",1],["24hourcampfire","2004-04","material","皮革",1],["24hourcampfire","2004-04","need","透氣/排汗",1],["24hourcampfire","2004-04","need","防水",2],["24hourcampfire","2004-05","material","棉",1],["24hourcampfire","2004-05","material","皮革",2],["24hourcampfire","2004-05","need","防水",2],["24hourcampfire","2004-10","need","輕量",1],["24hourcampfire","2006-02","need","輕量",1],["24hourcampfire","2006-03","need","舒適/柔軟",1],["24hourcampfire","2006-11","material","Gore-Tex",3],["24hourcampfire","2006-11","material","合成纖維/聚酯",3],["24hourcampfire","2006-11","material","尼龍",1],["24hourcampfire","2006-11","material","抓絨",3],["24hourcampfire","2006-11","material","棉",5],["24hourcampfire","2006-11","material","羊毛(一般)",3],["24hourcampfire","2006-11","need","保暖",13],["24hourcampfire","2006-11","need","耐磨/耐用",1],["24hourcampfire","2006-11","need","舒適/柔軟",1],["24hourcampfire","2006-11","need","輕量",6],["24hourcampfire","2006-11","need","透氣/排汗",1],["24hourcampfire","2006-11","need","防水",17],["24hourcampfire","2006-12","material","棉",4],["24hourcampfire","2006-12","material","橡膠/氯丁橡膠",1],["24hourcampfire","2006-12","material","羊毛(一般)",2],["24hourcampfire","2006-12","material","美麗諾羊毛",1],["24hourcampfire","2006-12","material","羽絨",1],["24hourcampfire","2006-12","need","可收納",1],["24hourcampfire","2006-12","need","抗臭/控味",1],["24hourcampfire","2006-12","need","耐磨/耐用",1],["24hourcampfire","2006-12","need","輕量",1],["24hourcampfire","2006-12","need","透氣/排汗",1],["24hourcampfire","2006-12","need","防水",6],["24hourcampfire","2007-12","material","抓絨",2],["24hourcampfire","2007-12","material","棉",1],["24hourcampfire","2007-12","material","羊毛(一般)",3],["24hourcampfire","2007-12","need","保暖",1],["24hourcampfire","2007-12","need","輕量",1],["24hourcampfire","2007-12","need","防水",2],["24hourcampfire","2008-01","material","抓絨",2],["24hourcampfire","2008-01","material","羊毛(一般)",6],["24hourcampfire","2008-01","need","保暖",5],["24hourcampfire","2008-01","need","耐磨/耐用",4],["24hourcampfire","2008-01","need","速乾",1],["24hourcampfire","2008-01","need","防水",1],["24hourcampfire","2008-02","material","Gore-Tex",3],["24hourcampfire","2008-02","material","PrimaLoft/合成絨",2],["24hourcampfire","2008-02","material","eVent/Pertex/其他薄膜",4],["24hourcampfire","2008-02","material","合成纖維/聚酯",13],["24hourcampfire","2008-02","material","尼龍",3],["24hourcampfire","2008-02","material","抓絨",5],["24hourcampfire","2008-02","material","棉",9],["24hourcampfire","2008-02","material","羊毛(一般)",18],["24hourcampfire","2008-02","material","美麗諾羊毛",10],["24hourcampfire","2008-02","material","羽絨",2],["24hourcampfire","2008-02","material","軟殼",1],["24hourcampfire","2008-02","need","保暖",23],["24hourcampfire","2008-02","need","可收納",2],["24hourcampfire","2008-02","need","耐磨/耐用",1],["24hourcampfire","2008-02","need","舒適/柔軟",2],["24hourcampfire","2008-02","need","輕量",6],["24hourcampfire","2008-02","need","透氣/排汗",16],["24hourcampfire","2008-02","need","速乾",2],["24hourcampfire","2008-02","need","防水",27],["24hourcampfire","2008-03","need","防水",1],["24hourcampfire","2010-05","material","羽絨",1],["24hourcampfire","2010-05","need","可收納",1],["24hourcampfire","2010-05","need","輕量",1],["24hourcampfire","2010-07","material","Gore-Tex",2],["24hourcampfire","2010-07","need","透氣/排汗",1],["24hourcampfire","2010-07","need","防水",2],["24hourcampfire","2010-07","need","防風",2],["24hourcampfire","2011-06","need","透氣/排汗",1],["24hourcampfire","2011-06","need","防水",1],["24hourcampfire","2011-06","need","防風",1],["24hourcampfire","2011-08","material","合成纖維/聚酯",1],["24hourcampfire","2011-08","need","保暖",1],["24hourcampfire","2012-04","material","橡膠/氯丁橡膠",2],["24hourcampfire","2012-04","need","防水",2],["24hourcampfire","2013-11","need","速乾",1],["24hourcampfire","2013-12","material","皮革",1],["24hourcampfire","2013-12","need","透氣/排汗",1],["24hourcampfire","2014-04","need","保暖",2],["24hourcampfire","2014-04","need","透氣/排汗",3],["24hourcampfire","2014-06","need","防水",2],["24hourcampfire","2014-10","material","棉",1],["24hourcampfire","2014-10","material","羊毛(一般)",2],["24hourcampfire","2014-10","need","保暖",2],["24hourcampfire","2014-10","need","耐磨/耐用",1],["24hourcampfire","2014-10","need","透氣/排汗",1],["24hourcampfire","2014-12","need","保暖",1],["24hourcampfire","2014-12","need","防水",1],["24hourcampfire","2017-03","need","保暖",1],["24hourcampfire","2017-03","need","舒適/柔軟",1],["24hourcampfire","2017-03","need","防水",1],["24hourcampfire","2020-01","material","合成纖維/聚酯",1],["24hourcampfire","2020-01","material","羊毛(一般)",1],["24hourcampfire","2020-01","need","保暖",1],["24hourcampfire","2020-01","need","可收納",1],["24hourcampfire","2020-01","need","耐磨/耐用",1],["24hourcampfire","2020-01","need","舒適/柔軟",1],["24hourcampfire","2020-01","need","輕量",3],["24hourcampfire","2020-01","need","透氣/排汗",1],["24hourcampfire","2020-05","material","橡膠/氯丁橡膠",1],["24hourcampfire","2020-08","material","羊毛(一般)",1],["24hourcampfire","2020-10","material","Gore-Tex",1],["24hourcampfire","2020-10","material","皮革",1],["24hourcampfire","2020-10","need","防水",2],["24hourcampfire","2021-01","material","Gore-Tex",1],["24hourcampfire","2021-01","material","抓絨",2],["24hourcampfire","2021-01","material","橡膠/氯丁橡膠",1],["24hourcampfire","2021-01","material","皮革",1],["24hourcampfire","2021-01","material","羊毛(一般)",1],["24hourcampfire","2021-01","need","保暖",2],["24hourcampfire","2021-01","need","透氣/排汗",2],["24hourcampfire","2021-01","need","防水",2],["24hourcampfire","2021-01","need","防風",3],["24hourcampfire","2021-06","material","抓絨",3],["24hourcampfire","2021-06","need","保暖",1],["24hourcampfire","2021-06","need","透氣/排汗",2],["24hourcampfire","2021-06","need","防水",1],["24hourcampfire","2021-06","need","防風",1],["24hourcampfire","2021-06","need","靜音",1],["24hourcampfire","2022-04","need","輕量",1],["24hourcampfire","2022-12","material","合成纖維/聚酯",1],["24hourcampfire","2022-12","material","橡膠/氯丁橡膠",1],["24hourcampfire","2022-12","material","羊毛(一般)",5],["24hourcampfire","2022-12","material","美麗諾羊毛",3],["24hourcampfire","2022-12","need","保暖",2],["24hourcampfire","2022-12","need","耐磨/耐用",1],["24hourcampfire","2022-12","need","輕量",1],["24hourcampfire","2022-12","need","防水",1],["24hourcampfire","2022-12","need","靜音",1],["24hourcampfire","2023-01","material","合成纖維/聚酯",1],["24hourcampfire","2023-01","need","保暖",2],["24hourcampfire","2023-03","material","羊毛(一般)",1],["24hourcampfire","2023-03","need","保暖",1],["24hourcampfire","2023-04","material","美麗諾羊毛",1],["24hourcampfire","2023-07","need","輕量",1],["24hourcampfire","2023-08","need","透氣/排汗",1],["24hourcampfire","2023-08","need","靜音",1],["24hourcampfire","2023-09","material","合成纖維/聚酯",1],["24hourcampfire","2023-09","material","抓絨",1],["24hourcampfire","2023-11","material","羊毛(一般)",2],["24hourcampfire","2023-11","material","美麗諾羊毛",1],["24hourcampfire","2023-11","need","保暖",1],["24hourcampfire","2023-11","need","耐磨/耐用",1],["24hourcampfire","2023-11","need","舒適/柔軟",1],["24hourcampfire","2023-12","material","棉",2],["24hourcampfire","2023-12","material","橡膠/氯丁橡膠",2],["24hourcampfire","2023-12","need","保暖",2],["24hourcampfire","2023-12","need","舒適/柔軟",2],["24hourcampfire","2023-12","need","輕量",1],["24hourcampfire","2023-12","need","防水",1],["24hourcampfire","2023-12","need","防風",1],["24hourcampfire","2024-01","material","羊毛(一般)",1],["24hourcampfire","2024-01","material","美麗諾羊毛",1],["24hourcampfire","2024-01","need","保暖",2],["24hourcampfire","2024-01","need","透氣/排汗",1],["24hourcampfire","2024-04","material","橡膠/氯丁橡膠",1],["24hourcampfire","2024-05","material","Gore-Tex",1],["24hourcampfire","2024-05","need","防水",3],["24hourcampfire","2024-05","need","靜音",1],["24hourcampfire","2024-07","material","PrimaLoft/合成絨",1],["24hourcampfire","2024-07","material","羊毛(一般)",1],["24hourcampfire","2024-07","need","保暖",2],["24hourcampfire","2024-08","need","保暖",1],["24hourcampfire","2024-09","need","保暖",1],["24hourcampfire","2024-09","need","防水",1],["24hourcampfire","2024-10","material","抓絨",1],["24hourcampfire","2024-10","material","棉",2],["24hourcampfire","2024-10","material","羊毛(一般)",2],["24hourcampfire","2024-10","need","保暖",1],["24hourcampfire","2024-10","need","防水",2],["24hourcampfire","2024-11","material","合成纖維/聚酯",1],["24hourcampfire","2024-11","material","棉",3],["24hourcampfire","2024-11","material","皮革",1],["24hourcampfire","2024-11","material","羊毛(一般)",5],["24hourcampfire","2024-11","material","羽絨",2],["24hourcampfire","2024-11","need","保暖",1],["24hourcampfire","2024-11","need","輕量",1],["24hourcampfire","2024-11","need","防水",4],["24hourcampfire","2024-12","need","保暖",1],["24hourcampfire","2024-12","need","舒適/柔軟",1],["24hourcampfire","2024-12","need","輕量",1],["24hourcampfire","2025-01","need","保暖",2],["24hourcampfire","2025-03","need","保暖",1],["24hourcampfire","2025-03","need","透氣/排汗",1],["24hourcampfire","2025-07","need","防水",1],["24hourcampfire","2025-08","need","保暖",1],["24hourcampfire","2025-10","material","Dyneema/DCF",2],["24hourcampfire","2025-10","material","Gore-Tex",2],["24hourcampfire","2025-10","material","PrimaLoft/合成絨",1],["24hourcampfire","2025-10","material","合成纖維/聚酯",2],["24hourcampfire","2025-10","material","尼龍",4],["24hourcampfire","2025-10","material","抓絨",2],["24hourcampfire","2025-10","material","棉",7],["24hourcampfire","2025-10","material","皮革",4],["24hourcampfire","2025-10","material","羊毛(一般)",7],["24hourcampfire","2025-10","material","美麗諾羊毛",1],["24hourcampfire","2025-10","need","保暖",15],["24hourcampfire","2025-10","need","抗臭/控味",3],["24hourcampfire","2025-10","need","舒適/柔軟",7],["24hourcampfire","2025-10","need","輕量",7],["24hourcampfire","2025-10","need","透氣/排汗",4],["24hourcampfire","2025-10","need","防水",2],["24hourcampfire","2025-10","need","防風",1],["24hourcampfire","2025-10","need","靜音",1],["24hourcampfire","2025-11","material","合成纖維/聚酯",2],["24hourcampfire","2025-11","material","棉",2],["24hourcampfire","2025-11","need","保暖",7],["24hourcampfire","2025-11","need","可收納",1],["24hourcampfire","2025-11","need","抗臭/控味",2],["24hourcampfire","2025-11","need","輕量",1],["24hourcampfire","2025-11","need","透氣/排汗",2],["24hourcampfire","2025-11","need","防水",4],["24hourcampfire","2025-12","material","Gore-Tex",1],["24hourcampfire","2025-12","material","eVent/Pertex/其他薄膜",1],["24hourcampfire","2025-12","material","羊毛(一般)",1],["24hourcampfire","2025-12","material","美麗諾羊毛",1],["24hourcampfire","2025-12","material","軟殼",1],["24hourcampfire","2025-12","need","保暖",3],["24hourcampfire","2025-12","need","耐磨/耐用",2],["24hourcampfire","2025-12","need","舒適/柔軟",6],["24hourcampfire","2025-12","need","防水",1],["24hourcampfire","2026-01","material","Gore-Tex",2],["24hourcampfire","2026-01","material","eVent/Pertex/其他薄膜",1],["24hourcampfire","2026-01","material","抓絨",1],["24hourcampfire","2026-01","material","皮革",1],["24hourcampfire","2026-01","material","羽絨",1],["24hourcampfire","2026-01","need","保暖",8],["24hourcampfire","2026-01","need","可收納",5],["24hourcampfire","2026-01","need","耐磨/耐用",7],["24hourcampfire","2026-01","need","舒適/柔軟",2],["24hourcampfire","2026-01","need","輕量",2],["24hourcampfire","2026-01","need","防水",8],["24hourcampfire","2026-01","need","防風",5],["24hourcampfire","2026-02","material","PrimaLoft/合成絨",1],["24hourcampfire","2026-02","material","抓絨",1],["24hourcampfire","2026-02","material","棉",2],["24hourcampfire","2026-02","material","羊毛(一般)",4],["24hourcampfire","2026-02","material","美麗諾羊毛",1],["24hourcampfire","2026-02","material","羽絨",4],["24hourcampfire","2026-02","need","保暖",8],["24hourcampfire","2026-02","need","輕量",2],["24hourcampfire","2026-02","need","透氣/排汗",1],["24hourcampfire","2026-02","need","防水",3],["24hourcampfire","2026-03","need","舒適/柔軟",2],["24hourcampfire","2026-03","need","輕量",3],["24hourcampfire","2026-03","need","防水",3],["24hourcampfire","2026-04","material","Gore-Tex",1],["24hourcampfire","2026-04","need","保暖",1],["24hourcampfire","2026-04","need","防水",2],["24hourcampfire","2026-05","material","羊毛(一般)",1],["24hourcampfire","2026-05","need","保暖",2],["24hourcampfire","2026-06","need","保暖",1],["24hourcampfire","2026-07","need","保暖",1],["24hourcampfire","2026-07","need","可收納",1],["24hourcampfire","2026-07","need","輕量",5],["24hourcampfire","2026-08","material","Gore-Tex",1],["24hourcampfire","2026-08","need","保暖",1],["24hourcampfire","2026-08","need","耐磨/耐用",1],["24hourcampfire","2026-08","need","透氣/排汗",1],["24hourcampfire","2026-08","need","防水",3],["24hourcampfire","2026-09","need","輕量",1],["backpackinglight","2007-03","need","輕量",1],["backpackinglight","2007-03","need","防水",1],["backpackinglight","2009-07","need","保暖",1],["backpackinglight","2009-10","need","保暖",1],["backpackinglight","2010-04","need","保暖",1],["backpackinglight","2011-05","need","可收納",1],["backpackinglight","2011-05","need","舒適/柔軟",1],["backpackinglight","2011-05","need","輕量",5],["backpackinglight","2011-05","need","防水",1],["backpackinglight","2011-10","need","舒適/柔軟",1],["backpackinglight","2011-10","need","輕量",1],["backpackinglight","2014-06","need","輕量",1],["backpackinglight","2014-07","need","抗臭/控味",1],["backpackinglight","2014-08","need","抗臭/控味",5],["backpackinglight","2014-09","need","防水",1],["backpackinglight","2014-11","need","舒適/柔軟",1],["backpackinglight","2014-12","material","尼龍",1],["backpackinglight","2014-12","material","羊毛(一般)",1],["backpackinglight","2014-12","need","耐磨/耐用",1],["backpackinglight","2014-12","need","舒適/柔軟",2],["backpackinglight","2014-12","need","防水",1],["backpackinglight","2015-03","material","Gore-Tex",1],["backpackinglight","2015-03","material","eVent/Pertex/其他薄膜",32],["backpackinglight","2015-03","material","合成纖維/聚酯",13],["backpackinglight","2015-03","material","尼龍",16],["backpackinglight","2015-03","material","抓絨",6],["backpackinglight","2015-03","material","羊毛(一般)",14],["backpackinglight","2015-03","material","美麗諾羊毛",3],["backpackinglight","2015-03","material","羽絨",2],["backpackinglight","2015-03","material","軟殼",1],["backpackinglight","2015-03","need","保暖",24],["backpackinglight","2015-03","need","可收納",1],["backpackinglight","2015-03","need","抗臭/控味",3],["backpackinglight","2015-03","need","耐磨/耐用",3],["backpackinglight","2015-03","need","舒適/柔軟",4],["backpackinglight","2015-03","need","輕量",11],["backpackinglight","2015-03","need","透氣/排汗",26],["backpackinglight","2015-03","need","速乾",1],["backpackinglight","2015-03","need","防水",60],["backpackinglight","2015-03","need","防風",1],["backpackinglight","2015-04","material","尼龍",1],["backpackinglight","2015-04","material","羊毛(一般)",3],["backpackinglight","2015-04","need","保暖",1],["backpackinglight","2015-04","need","耐磨/耐用",1],["backpackinglight","2015-04","need","舒適/柔軟",1],["backpackinglight","2015-04","need","輕量",1],["backpackinglight","2015-04","need","防水",1],["backpackinglight","2015-05","material","Dyneema/DCF",1],["backpackinglight","2015-05","material","eVent/Pertex/其他薄膜",2],["backpackinglight","2015-05","material","尼龍",1],["backpackinglight","2015-05","material","羊毛(一般)",1],["backpackinglight","2015-05","need","保暖",1],["backpackinglight","2015-05","need","舒適/柔軟",2],["backpackinglight","2015-05","need","輕量",7],["backpackinglight","2015-05","need","透氣/排汗",1],["backpackinglight","2015-05","need","防水",7],["backpackinglight","2015-06","material","Dyneema/DCF",1],["backpackinglight","2015-06","material","尼龍",2],["backpackinglight","2015-06","need","輕量",3],["backpackinglight","2015-06","need","防水",1],["backpackinglight","2015-07","material","合成纖維/聚酯",1],["backpackinglight","2015-07","material","尼龍",2],["backpackinglight","2015-07","need","輕量",2],["backpackinglight","2015-07","need","透氣/排汗",4],["backpackinglight","2015-07","need","防水",5],["backpackinglight","2015-11","material","Dyneema/DCF",1],["backpackinglight","2015-11","need","輕量",1],["backpackinglight","2016-02","material","Gore-Tex",1],["backpackinglight","2016-02","material","eVent/Pertex/其他薄膜",1],["backpackinglight","2016-02","material","合成纖維/聚酯",1],["backpackinglight","2016-02","need","防風",1],["backpackinglight","2016-08","material","eVent/Pertex/其他薄膜",1],["backpackinglight","2016-08","material","合成纖維/聚酯",1],["backpackinglight","2016-08","material","尼龍",6],["backpackinglight","2016-08","need","耐磨/耐用",2],["backpackinglight","2016-08","need","舒適/柔軟",2],["backpackinglight","2016-08","need","輕量",3],["backpackinglight","2016-08","need","透氣/排汗",4],["backpackinglight","2016-08","need","防水",9],["backpackinglight","2016-09","material","抓絨",1],["backpackinglight","2016-09","need","保暖",1],["backpackinglight","2016-12","need","保暖",1],["backpackinglight","2016-12","need","抗臭/控味",1],["backpackinglight","2016-12","need","透氣/排汗",1],["backpackinglight","2017-01","material","橡膠/氯丁橡膠",1],["backpackinglight","2017-01","material","羊毛(一般)",1],["backpackinglight","2017-01","need","保暖",3],["backpackinglight","2017-02","material","eVent/Pertex/其他薄膜",1],["backpackinglight","2017-02","material","抓絨",1],["backpackinglight","2017-02","need","保暖",2],["backpackinglight","2017-02","need","透氣/排汗",2],["backpackinglight","2017-02","need","防水",2],["backpackinglight","2017-07","need","輕量",1],["backpackinglight","2017-08","need","輕量",1],["backpackinglight","2017-08","need","防水",3],["backpackinglight","2017-09","material","尼龍",1],["backpackinglight","2017-09","material","抓絨",1],["backpackinglight","2017-09","material","羊毛(一般)",3],["backpackinglight","2017-09","need","輕量",1],["backpackinglight","2017-09","need","透氣/排汗",1],["backpackinglight","2018-03","material","Dyneema/DCF",1],["backpackinglight","2018-03","material","eVent/Pertex/其他薄膜",2],["backpackinglight","2018-03","need","保暖",1],["backpackinglight","2018-03","need","可收納",1],["backpackinglight","2018-03","need","輕量",2],["backpackinglight","2018-03","need","透氣/排汗",3],["backpackinglight","2018-03","need","防水",5],["backpackinglight","2018-11","material","合成纖維/聚酯",1],["backpackinglight","2018-11","material","抓絨",4],["backpackinglight","2018-11","material","羊毛(一般)",1],["backpackinglight","2018-11","need","保暖",2],["backpackinglight","2018-11","need","舒適/柔軟",2],["backpackinglight","2018-11","need","透氣/排汗",2],["backpackinglight","2019-01","need","輕量",1],["backpackinglight","2019-06","need","舒適/柔軟",1],["backpackinglight","2019-06","need","輕量",1],["backpackinglight","2019-07","material","Dyneema/DCF",1],["backpackinglight","2019-07","material","eVent/Pertex/其他薄膜",1],["backpackinglight","2019-07","material","抓絨",1],["backpackinglight","2019-07","material","羽絨",2],["backpackinglight","2019-07","need","保暖",8],["backpackinglight","2019-07","need","可收納",1],["backpackinglight","2019-07","need","輕量",1],["backpackinglight","2019-10","material","尼龍",1],["backpackinglight","2019-10","material","羽絨",1],["backpackinglight","2019-10","need","保暖",6],["backpackinglight","2019-10","need","舒適/柔軟",1],["backpackinglight","2019-10","need","輕量",1],["backpackinglight","2019-10","need","透氣/排汗",1],["backpackinglight","2019-10","need","防水",2],["backpackinglight","2019-11","need","保暖",1],["backpackinglight","2019-12","material","Dyneema/DCF",3],["backpackinglight","2019-12","material","Gore-Tex",1],["backpackinglight","2019-12","material","PrimaLoft/合成絨",1],["backpackinglight","2019-12","material","合成纖維/聚酯",13],["backpackinglight","2019-12","material","尼龍",5],["backpackinglight","2019-12","material","抓絨",1],["backpackinglight","2019-12","material","橡膠/氯丁橡膠",2],["backpackinglight","2019-12","material","羊毛(一般)",1],["backpackinglight","2019-12","material","羽絨",10],["backpackinglight","2019-12","need","保暖",25],["backpackinglight","2019-12","need","可收納",1],["backpackinglight","2019-12","need","抗臭/控味",1],["backpackinglight","2019-12","need","耐磨/耐用",1],["backpackinglight","2019-12","need","輕量",2],["backpackinglight","2019-12","need","透氣/排汗",5],["backpackinglight","2019-12","need","防水",8],["backpackinglight","2019-12","need","防風",1],["backpackinglight","2020-01","material","Dyneema/DCF",1],["backpackinglight","2020-01","material","PrimaLoft/合成絨",1],["backpackinglight","2020-01","material","eVent/Pertex/其他薄膜",4],["backpackinglight","2020-01","material","合成纖維/聚酯",2],["backpackinglight","2020-01","material","尼龍",1],["backpackinglight","2020-01","material","抓絨",7],["backpackinglight","2020-01","material","橡膠/氯丁橡膠",2],["backpackinglight","2020-01","material","羊毛(一般)",2],["backpackinglight","2020-01","material","羽絨",3],["backpackinglight","2020-01","need","保暖",31],["backpackinglight","2020-01","need","可收納",2],["backpackinglight","2020-01","need","耐磨/耐用",1],["backpackinglight","2020-01","need","舒適/柔軟",5],["backpackinglight","2020-01","need","輕量",7],["backpackinglight","2020-01","need","透氣/排汗",4],["backpackinglight","2020-01","need","防水",5],["backpackinglight","2020-02","material","尼龍",1],["backpackinglight","2020-02","material","抓絨",2],["backpackinglight","2020-02","material","羊毛(一般)",1],["backpackinglight","2020-02","material","美麗諾羊毛",1],["backpackinglight","2020-02","material","羽絨",1],["backpackinglight","2020-02","need","保暖",7],["backpackinglight","2020-02","need","耐磨/耐用",1],["backpackinglight","2020-02","need","輕量",2],["backpackinglight","2020-02","need","透氣/排汗",1],["backpackinglight","2020-03","material","Gore-Tex",1],["backpackinglight","2020-03","material","合成纖維/聚酯",2],["backpackinglight","2020-03","material","尼龍",1],["backpackinglight","2020-03","material","抓絨",2],["backpackinglight","2020-03","material","棉",1],["backpackinglight","2020-03","material","羊毛(一般)",1],["backpackinglight","2020-03","material","美麗諾羊毛",1],["backpackinglight","2020-03","material","羽絨",5],["backpackinglight","2020-03","need","保暖",4],["backpackinglight","2020-03","need","可收納",1],["backpackinglight","2020-03","need","舒適/柔軟",1],["backpackinglight","2020-03","need","輕量",4],["backpackinglight","2020-04","material","eVent/Pertex/其他薄膜",1],["backpackinglight","2020-04","material","羽絨",4],["backpackinglight","2020-04","need","透氣/排汗",3],["backpackinglight","2020-04","need","防水",4],["backpackinglight","2020-05","material","Dyneema/DCF",1],["backpackinglight","2020-05","material","抓絨",1],["backpackinglight","2020-05","material","橡膠/氯丁橡膠",1],["backpackinglight","2020-05","need","保暖",2],["backpackinglight","2020-05","need","舒適/柔軟",1],["backpackinglight","2020-05","need","輕量",4],["backpackinglight","2020-05","need","透氣/排汗",2],["backpackinglight","2020-05","need","防水",2],["backpackinglight","2020-08","material","Gore-Tex",7],["backpackinglight","2020-08","material","eVent/Pertex/其他薄膜",3],["backpackinglight","2020-08","material","尼龍",1],["backpackinglight","2020-08","material","棉",1],["backpackinglight","2020-08","material","橡膠/氯丁橡膠",7],["backpackinglight","2020-08","material","皮革",1],["backpackinglight","2020-08","material","羊毛(一般)",5],["backpackinglight","2020-08","material","美麗諾羊毛",2],["backpackinglight","2020-08","need","保暖",14],["backpackinglight","2020-08","need","輕量",5],["backpackinglight","2020-08","need","透氣/排汗",12],["backpackinglight","2020-08","need","防水",38],["backpackinglight","2020-09","need","保暖",4],["backpackinglight","2020-09","need","透氣/排汗",1],["backpackinglight","2020-09","need","防水",1],["backpackinglight","2020-10","material","合成纖維/聚酯",1],["backpackinglight","2020-10","material","抓絨",1],["backpackinglight","2020-10","material","羊毛(一般)",1],["backpackinglight","2020-10","need","保暖",8],["backpackinglight","2020-10","need","透氣/排汗",2],["backpackinglight","2020-10","need","防水",6],["backpackinglight","2020-11","material","eVent/Pertex/其他薄膜",1],["backpackinglight","2020-11","material","羽絨",3],["backpackinglight","2020-11","need","保暖",5],["backpackinglight","2020-11","need","輕量",3],["backpackinglight","2020-12","material","Gore-Tex",2],["backpackinglight","2020-12","material","PrimaLoft/合成絨",1],["backpackinglight","2020-12","material","合成纖維/聚酯",4],["backpackinglight","2020-12","material","尼龍",3],["backpackinglight","2020-12","material","抓絨",2],["backpackinglight","2020-12","material","橡膠/氯丁橡膠",14],["backpackinglight","2020-12","material","皮革",2],["backpackinglight","2020-12","material","羊毛(一般)",11],["backpackinglight","2020-12","material","美麗諾羊毛",1],["backpackinglight","2020-12","material","軟殼",8],["backpackinglight","2020-12","need","保暖",24],["backpackinglight","2020-12","need","耐磨/耐用",2],["backpackinglight","2020-12","need","舒適/柔軟",13],["backpackinglight","2020-12","need","輕量",10],["backpackinglight","2020-12","need","透氣/排汗",6],["backpackinglight","2020-12","need","防水",11],["backpackinglight","2020-12","need","防風",3],["backpackinglight","2021-01","material","尼龍",1],["backpackinglight","2021-01","need","耐磨/耐用",1],["backpackinglight","2021-01","need","輕量",1],["backpackinglight","2021-04","material","eVent/Pertex/其他薄膜",1],["backpackinglight","2021-04","material","尼龍",1],["backpackinglight","2021-04","material","羊毛(一般)",2],["backpackinglight","2021-04","need","保暖",1],["backpackinglight","2021-04","need","輕量",1],["backpackinglight","2021-05","material","Dyneema/DCF",2],["backpackinglight","2021-05","material","eVent/Pertex/其他薄膜",3],["backpackinglight","2021-05","need","耐磨/耐用",1],["backpackinglight","2021-05","need","舒適/柔軟",1],["backpackinglight","2021-05","need","輕量",5],["backpackinglight","2021-05","need","透氣/排汗",1],["backpackinglight","2021-05","need","防水",8],["backpackinglight","2021-09","material","羽絨",1],["backpackinglight","2021-09","need","輕量",2],["backpackinglight","2021-09","need","透氣/排汗",1],["backpackinglight","2021-10","material","PrimaLoft/合成絨",1],["backpackinglight","2021-10","material","合成纖維/聚酯",1],["backpackinglight","2021-10","material","羽絨",1],["backpackinglight","2021-10","need","保暖",5],["backpackinglight","2021-11","material","合成纖維/聚酯",3],["backpackinglight","2021-11","material","羽絨",8],["backpackinglight","2021-11","need","保暖",13],["backpackinglight","2021-11","need","舒適/柔軟",3],["backpackinglight","2021-11","need","透氣/排汗",1],["backpackinglight","2022-01","material","尼龍",2],["backpackinglight","2022-01","material","羽絨",1],["backpackinglight","2022-01","need","保暖",2],["backpackinglight","2022-01","need","耐磨/耐用",1],["backpackinglight","2022-01","need","防水",2],["backpackinglight","2022-04","material","尼龍",1],["backpackinglight","2022-04","need","舒適/柔軟",1],["backpackinglight","2022-05","need","耐磨/耐用",2],["backpackinglight","2022-06","material","PrimaLoft/合成絨",2],["backpackinglight","2022-06","material","合成纖維/聚酯",2],["backpackinglight","2022-06","material","尼龍",1],["backpackinglight","2022-06","need","保暖",1],["backpackinglight","2022-06","need","輕量",1],["backpackinglight","2022-08","need","保暖",1],["backpackinglight","2022-09","material","羽絨",1],["backpackinglight","2022-09","need","保暖",1],["backpackinglight","2022-09","need","透氣/排汗",1],["backpackinglight","2022-10","material","Dyneema/DCF",2],["backpackinglight","2022-10","material","eVent/Pertex/其他薄膜",1],["backpackinglight","2022-10","material","合成纖維/聚酯",1],["backpackinglight","2022-10","material","尼龍",5],["backpackinglight","2022-10","material","羽絨",4],["backpackinglight","2022-10","need","保暖",27],["backpackinglight","2022-10","need","可收納",4],["backpackinglight","2022-10","need","耐磨/耐用",2],["backpackinglight","2022-10","need","舒適/柔軟",7],["backpackinglight","2022-10","need","輕量",18],["backpackinglight","2022-10","need","透氣/排汗",15],["backpackinglight","2022-10","need","防水",11],["backpackinglight","2022-11","material","PrimaLoft/合成絨",1],["backpackinglight","2022-11","material","尼龍",1],["backpackinglight","2022-11","material","抓絨",1],["backpackinglight","2022-11","material","棉",2],["backpackinglight","2022-11","material","皮革",1],["backpackinglight","2022-11","material","美麗諾羊毛",1],["backpackinglight","2022-11","material","羽絨",1],["backpackinglight","2022-11","need","保暖",6],["backpackinglight","2022-11","need","舒適/柔軟",2],["backpackinglight","2022-11","need","輕量",3],["backpackinglight","2022-11","need","透氣/排汗",5],["backpackinglight","2022-11","need","防水",2],["backpackinglight","2022-12","material","PrimaLoft/合成絨",22],["backpackinglight","2022-12","material","合成纖維/聚酯",14],["backpackinglight","2022-12","material","尼龍",3],["backpackinglight","2022-12","material","抓絨",3],["backpackinglight","2022-12","material","羊毛(一般)",4],["backpackinglight","2022-12","material","美麗諾羊毛",9],["backpackinglight","2022-12","material","羽絨",2],["backpackinglight","2022-12","need","保暖",16],["backpackinglight","2022-12","need","可收納",8],["backpackinglight","2022-12","need","抗臭/控味",5],["backpackinglight","2022-12","need","耐磨/耐用",1],["backpackinglight","2022-12","need","舒適/柔軟",1],["backpackinglight","2022-12","need","輕量",13],["backpackinglight","2022-12","need","透氣/排汗",1],["backpackinglight","2023-01","material","Dyneema/DCF",4],["backpackinglight","2023-01","material","PrimaLoft/合成絨",11],["backpackinglight","2023-01","material","合成纖維/聚酯",22],["backpackinglight","2023-01","material","尼龍",22],["backpackinglight","2023-01","material","抓絨",7],["backpackinglight","2023-01","material","羽絨",12],["backpackinglight","2023-01","need","保暖",38],["backpackinglight","2023-01","need","可收納",6],["backpackinglight","2023-01","need","抗臭/控味",1],["backpackinglight","2023-01","need","耐磨/耐用",5],["backpackinglight","2023-01","need","舒適/柔軟",1],["backpackinglight","2023-01","need","輕量",20],["backpackinglight","2023-01","need","透氣/排汗",11],["backpackinglight","2023-01","need","速乾",1],["backpackinglight","2023-01","need","防水",14],["backpackinglight","2023-01","need","防風",1],["backpackinglight","2023-02","material","Dyneema/DCF",2],["backpackinglight","2023-02","material","PrimaLoft/合成絨",1],["backpackinglight","2023-02","material","eVent/Pertex/其他薄膜",2],["backpackinglight","2023-02","material","合成纖維/聚酯",3],["backpackinglight","2023-02","material","尼龍",3],["backpackinglight","2023-02","material","抓絨",6],["backpackinglight","2023-02","material","棉",1],["backpackinglight","2023-02","material","皮革",2],["backpackinglight","2023-02","material","羊毛(一般)",2],["backpackinglight","2023-02","need","保暖",13],["backpackinglight","2023-02","need","可收納",1],["backpackinglight","2023-02","need","舒適/柔軟",3],["backpackinglight","2023-02","need","輕量",13],["backpackinglight","2023-02","need","透氣/排汗",5],["backpackinglight","2023-02","need","防水",8],["backpackinglight","2023-03","material","Dyneema/DCF",2],["backpackinglight","2023-03","material","抓絨",1],["backpackinglight","2023-03","need","保暖",1],["backpackinglight","2023-03","need","舒適/柔軟",1],["backpackinglight","2023-03","need","輕量",1],["backpackinglight","2023-03","need","透氣/排汗",4],["backpackinglight","2023-03","need","防水",7],["backpackinglight","2023-04","material","Cordura",3],["backpackinglight","2023-04","need","耐磨/耐用",1],["backpackinglight","2023-04","need","防水",1],["backpackinglight","2023-06","material","Dyneema/DCF",2],["backpackinglight","2023-06","material","eVent/Pertex/其他薄膜",1],["backpackinglight","2023-06","material","尼龍",1],["backpackinglight","2023-06","need","舒適/柔軟",1],["backpackinglight","2023-06","need","透氣/排汗",2],["backpackinglight","2023-06","need","防水",4],["backpackinglight","2023-08","material","PrimaLoft/合成絨",1],["backpackinglight","2023-08","material","羽絨",2],["backpackinglight","2023-08","need","保暖",6],["backpackinglight","2023-08","need","透氣/排汗",1],["backpackinglight","2023-09","material","尼龍",3],["backpackinglight","2023-09","need","輕量",2],["backpackinglight","2023-09","need","防水",3],["backpackinglight","2023-09","need","靜音",1],["backpackinglight","2023-10","material","PrimaLoft/合成絨",1],["backpackinglight","2023-10","material","合成纖維/聚酯",2],["backpackinglight","2023-10","material","抓絨",6],["backpackinglight","2023-10","need","保暖",7],["backpackinglight","2023-10","need","可收納",2],["backpackinglight","2023-10","need","舒適/柔軟",1],["backpackinglight","2023-10","need","輕量",1],["backpackinglight","2023-10","need","透氣/排汗",1],["backpackinglight","2023-10","need","防水",1],["backpackinglight","2023-11","material","Dyneema/DCF",1],["backpackinglight","2023-11","material","Gore-Tex",1],["backpackinglight","2023-11","material","eVent/Pertex/其他薄膜",1],["backpackinglight","2023-11","material","尼龍",2],["backpackinglight","2023-11","material","抓絨",2],["backpackinglight","2023-11","material","棉",1],["backpackinglight","2023-11","material","皮革",1],["backpackinglight","2023-11","material","羊毛(一般)",2],["backpackinglight","2023-11","material","美麗諾羊毛",1],["backpackinglight","2023-11","material","羽絨",5],["backpackinglight","2023-11","need","保暖",9],["backpackinglight","2023-11","need","耐磨/耐用",1],["backpackinglight","2023-11","need","輕量",2],["backpackinglight","2023-11","need","防水",1],["backpackinglight","2023-11","need","防風",1],["backpackinglight","2023-12","material","PrimaLoft/合成絨",1],["backpackinglight","2023-12","material","合成纖維/聚酯",7],["backpackinglight","2023-12","material","尼龍",6],["backpackinglight","2023-12","material","抓絨",22],["backpackinglight","2023-12","material","羊毛(一般)",2],["backpackinglight","2023-12","material","羽絨",2],["backpackinglight","2023-12","need","保暖",21],["backpackinglight","2023-12","need","可收納",2],["backpackinglight","2023-12","need","耐磨/耐用",4],["backpackinglight","2023-12","need","舒適/柔軟",3],["backpackinglight","2023-12","need","輕量",8],["backpackinglight","2023-12","need","透氣/排汗",4],["backpackinglight","2023-12","need","防水",1],["backpackinglight","2023-12","need","防風",1],["backpackinglight","2024-01","material","PrimaLoft/合成絨",1],["backpackinglight","2024-01","material","合成纖維/聚酯",1],["backpackinglight","2024-01","material","尼龍",1],["backpackinglight","2024-01","material","抓絨",9],["backpackinglight","2024-01","material","羊毛(一般)",5],["backpackinglight","2024-01","material","美麗諾羊毛",4],["backpackinglight","2024-01","need","保暖",8],["backpackinglight","2024-01","need","可收納",1],["backpackinglight","2024-01","need","舒適/柔軟",3],["backpackinglight","2024-01","need","輕量",8],["backpackinglight","2024-01","need","透氣/排汗",1],["backpackinglight","2024-01","need","防水",2],["backpackinglight","2024-02","material","Dyneema/DCF",1],["backpackinglight","2024-02","material","eVent/Pertex/其他薄膜",8],["backpackinglight","2024-02","material","合成纖維/聚酯",2],["backpackinglight","2024-02","material","尼龍",3],["backpackinglight","2024-02","material","羊毛(一般)",1],["backpackinglight","2024-02","material","羽絨",1],["backpackinglight","2024-02","need","保暖",5],["backpackinglight","2024-02","need","耐磨/耐用",2],["backpackinglight","2024-02","need","舒適/柔軟",2],["backpackinglight","2024-02","need","輕量",6],["backpackinglight","2024-02","need","透氣/排汗",6],["backpackinglight","2024-02","need","防水",13],["backpackinglight","2024-03","material","PrimaLoft/合成絨",2],["backpackinglight","2024-03","material","eVent/Pertex/其他薄膜",3],["backpackinglight","2024-03","material","合成纖維/聚酯",5],["backpackinglight","2024-03","material","尼龍",1],["backpackinglight","2024-03","material","羊毛(一般)",1],["backpackinglight","2024-03","material","羽絨",2],["backpackinglight","2024-03","need","保暖",14],["backpackinglight","2024-03","need","耐磨/耐用",1],["backpackinglight","2024-03","need","舒適/柔軟",1],["backpackinglight","2024-03","need","輕量",2],["backpackinglight","2024-03","need","透氣/排汗",6],["backpackinglight","2024-03","need","防水",2],["backpackinglight","2024-04","material","合成纖維/聚酯",3],["backpackinglight","2024-04","material","羽絨",1],["backpackinglight","2024-04","need","保暖",10],["backpackinglight","2024-04","need","輕量",1],["backpackinglight","2024-04","need","防水",2],["backpackinglight","2024-05","material","Dyneema/DCF",2],["backpackinglight","2024-05","material","PrimaLoft/合成絨",1],["backpackinglight","2024-05","material","合成纖維/聚酯",5],["backpackinglight","2024-05","material","尼龍",2],["backpackinglight","2024-05","material","抓絨",3],["backpackinglight","2024-05","material","羽絨",3],["backpackinglight","2024-05","need","保暖",7],["backpackinglight","2024-05","need","可收納",3],["backpackinglight","2024-05","need","耐磨/耐用",1],["backpackinglight","2024-05","need","輕量",10],["backpackinglight","2024-05","need","透氣/排汗",3],["backpackinglight","2024-05","need","防風",1],["backpackinglight","2024-06","material","Gore-Tex",1],["backpackinglight","2024-06","material","eVent/Pertex/其他薄膜",2],["backpackinglight","2024-06","material","尼龍",1],["backpackinglight","2024-06","need","保暖",1],["backpackinglight","2024-06","need","輕量",7],["backpackinglight","2024-06","need","透氣/排汗",1],["backpackinglight","2024-06","need","防水",4],["backpackinglight","2024-07","need","保暖",1],["backpackinglight","2024-08","material","合成纖維/聚酯",1],["backpackinglight","2024-08","material","尼龍",2],["backpackinglight","2024-08","need","抗臭/控味",1],["backpackinglight","2024-08","need","透氣/排汗",1],["backpackinglight","2024-09","material","Dyneema/DCF",1],["backpackinglight","2024-09","material","抓絨",2],["backpackinglight","2024-09","material","橡膠/氯丁橡膠",1],["backpackinglight","2024-09","material","羊毛(一般)",1],["backpackinglight","2024-09","material","羽絨",1],["backpackinglight","2024-09","need","保暖",9],["backpackinglight","2024-09","need","舒適/柔軟",1],["backpackinglight","2024-09","need","輕量",4],["backpackinglight","2024-09","need","透氣/排汗",1],["backpackinglight","2024-09","need","防水",1],["backpackinglight","2024-10","material","合成纖維/聚酯",1],["backpackinglight","2024-10","material","尼龍",2],["backpackinglight","2024-10","material","抓絨",1],["backpackinglight","2024-10","material","銀離子/抗菌處理",1],["backpackinglight","2024-10","need","保暖",2],["backpackinglight","2024-10","need","抗臭/控味",1],["backpackinglight","2024-10","need","耐磨/耐用",1],["backpackinglight","2024-10","need","舒適/柔軟",1],["backpackinglight","2024-10","need","輕量",2],["backpackinglight","2024-10","need","透氣/排汗",4],["backpackinglight","2024-10","need","防水",1],["backpackinglight","2024-11","material","Dyneema/DCF",5],["backpackinglight","2024-11","material","PrimaLoft/合成絨",1],["backpackinglight","2024-11","material","合成纖維/聚酯",2],["backpackinglight","2024-11","material","尼龍",5],["backpackinglight","2024-11","material","抓絨",1],["backpackinglight","2024-11","material","棉",1],["backpackinglight","2024-11","material","羊毛(一般)",2],["backpackinglight","2024-11","material","美麗諾羊毛",1],["backpackinglight","2024-11","material","羽絨",1],["backpackinglight","2024-11","need","保暖",10],["backpackinglight","2024-11","need","可收納",1],["backpackinglight","2024-11","need","抗臭/控味",2],["backpackinglight","2024-11","need","耐磨/耐用",2],["backpackinglight","2024-11","need","舒適/柔軟",1],["backpackinglight","2024-11","need","輕量",10],["backpackinglight","2024-11","need","透氣/排汗",1],["backpackinglight","2024-11","need","防水",5],["backpackinglight","2024-12","material","PrimaLoft/合成絨",3],["backpackinglight","2024-12","material","合成纖維/聚酯",5],["backpackinglight","2024-12","material","尼龍",4],["backpackinglight","2024-12","material","抓絨",2],["backpackinglight","2024-12","material","羊毛(一般)",4],["backpackinglight","2024-12","material","美麗諾羊毛",2],["backpackinglight","2024-12","need","保暖",7],["backpackinglight","2024-12","need","可收納",1],["backpackinglight","2024-12","need","耐磨/耐用",2],["backpackinglight","2024-12","need","舒適/柔軟",2],["backpackinglight","2024-12","need","輕量",5],["backpackinglight","2024-12","need","透氣/排汗",9],["backpackinglight","2024-12","need","防水",4],["backpackinglight","2025-01","material","Gore-Tex",1],["backpackinglight","2025-01","material","eVent/Pertex/其他薄膜",5],["backpackinglight","2025-01","material","合成纖維/聚酯",1],["backpackinglight","2025-01","material","尼龍",6],["backpackinglight","2025-01","material","抓絨",16],["backpackinglight","2025-01","material","棉",1],["backpackinglight","2025-01","material","皮革",7],["backpackinglight","2025-01","material","羊毛(一般)",26],["backpackinglight","2025-01","material","美麗諾羊毛",1],["backpackinglight","2025-01","material","羽絨",1],["backpackinglight","2025-01","material","軟殼",5],["backpackinglight","2025-01","need","保暖",19],["backpackinglight","2025-01","need","可收納",1],["backpackinglight","2025-01","need","耐磨/耐用",7],["backpackinglight","2025-01","need","舒適/柔軟",12],["backpackinglight","2025-01","need","輕量",11],["backpackinglight","2025-01","need","透氣/排汗",20],["backpackinglight","2025-01","need","速乾",2],["backpackinglight","2025-01","need","防水",23],["backpackinglight","2025-02","material","Dyneema/DCF",1],["backpackinglight","2025-02","material","eVent/Pertex/其他薄膜",1],["backpackinglight","2025-02","material","尼龍",4],["backpackinglight","2025-02","material","皮革",1],["backpackinglight","2025-02","material","美麗諾羊毛",1],["backpackinglight","2025-02","need","保暖",6],["backpackinglight","2025-02","need","可收納",1],["backpackinglight","2025-02","need","耐磨/耐用",1],["backpackinglight","2025-02","need","舒適/柔軟",1],["backpackinglight","2025-02","need","輕量",5],["backpackinglight","2025-02","need","透氣/排汗",1],["backpackinglight","2025-02","need","防水",1],["backpackinglight","2025-02","need","防風",1],["backpackinglight","2025-03","material","Dyneema/DCF",1],["backpackinglight","2025-03","material","eVent/Pertex/其他薄膜",1],["backpackinglight","2025-03","material","橡膠/氯丁橡膠",1],["backpackinglight","2025-03","material","皮革",3],["backpackinglight","2025-03","need","防水",4],["backpackinglight","2025-04","material","合成纖維/聚酯",2],["backpackinglight","2025-04","material","尼龍",2],["backpackinglight","2025-04","need","舒適/柔軟",4],["backpackinglight","2025-04","need","透氣/排汗",4],["backpackinglight","2025-04","need","速乾",2],["backpackinglight","2025-05","need","透氣/排汗",4],["backpackinglight","2025-05","need","速乾",1],["backpackinglight","2025-07","need","保暖",3],["backpackinglight","2025-07","need","舒適/柔軟",3],["backpackinglight","2025-07","need","輕量",4],["backpackinglight","2025-07","need","透氣/排汗",3],["backpackinglight","2025-07","need","防水",5],["backpackinglight","2025-08","material","Gore-Tex",2],["backpackinglight","2025-08","material","PrimaLoft/合成絨",1],["backpackinglight","2025-08","material","eVent/Pertex/其他薄膜",1],["backpackinglight","2025-08","material","合成纖維/聚酯",7],["backpackinglight","2025-08","material","尼龍",5],["backpackinglight","2025-08","material","抓絨",5],["backpackinglight","2025-08","material","皮革",1],["backpackinglight","2025-08","material","羽絨",7],["backpackinglight","2025-08","need","保暖",4],["backpackinglight","2025-08","need","耐磨/耐用",1],["backpackinglight","2025-08","need","舒適/柔軟",3],["backpackinglight","2025-08","need","輕量",1],["backpackinglight","2025-08","need","透氣/排汗",7],["backpackinglight","2025-08","need","防水",5],["backpackinglight","2025-09","material","合成纖維/聚酯",4],["backpackinglight","2025-09","material","尼龍",1],["backpackinglight","2025-09","material","抓絨",5],["backpackinglight","2025-09","material","羊毛(一般)",2],["backpackinglight","2025-09","material","美麗諾羊毛",4],["backpackinglight","2025-09","material","羽絨",4],["backpackinglight","2025-09","need","保暖",11],["backpackinglight","2025-09","need","可收納",2],["backpackinglight","2025-09","need","舒適/柔軟",4],["backpackinglight","2025-09","need","輕量",4],["backpackinglight","2025-09","need","透氣/排汗",3],["backpackinglight","2025-09","need","防水",1],["backpackinglight","2025-10","material","PrimaLoft/合成絨",3],["backpackinglight","2025-10","material","合成纖維/聚酯",4],["backpackinglight","2025-10","material","羊毛(一般)",1],["backpackinglight","2025-10","material","羽絨",4],["backpackinglight","2025-10","need","保暖",11],["backpackinglight","2025-10","need","可收納",5],["backpackinglight","2025-10","need","舒適/柔軟",1],["backpackinglight","2025-10","need","輕量",3],["backpackinglight","2025-10","need","透氣/排汗",2],["backpackinglight","2025-10","need","速乾",2],["backpackinglight","2025-10","need","防水",2],["backpackinglight","2025-11","material","Dyneema/DCF",3],["backpackinglight","2025-11","material","Gore-Tex",2],["backpackinglight","2025-11","material","PrimaLoft/合成絨",1],["backpackinglight","2025-11","material","eVent/Pertex/其他薄膜",1],["backpackinglight","2025-11","material","合成纖維/聚酯",5],["backpackinglight","2025-11","material","尼龍",3],["backpackinglight","2025-11","material","抓絨",4],["backpackinglight","2025-11","material","羊毛(一般)",6],["backpackinglight","2025-11","material","美麗諾羊毛",3],["backpackinglight","2025-11","material","羽絨",5],["backpackinglight","2025-11","material","軟殼",1],["backpackinglight","2025-11","need","保暖",8],["backpackinglight","2025-11","need","抗臭/控味",1],["backpackinglight","2025-11","need","耐磨/耐用",1],["backpackinglight","2025-11","need","舒適/柔軟",2],["backpackinglight","2025-11","need","輕量",12],["backpackinglight","2025-11","need","透氣/排汗",3],["backpackinglight","2025-11","need","防水",6],["backpackinglight","2025-11","need","防風",2],["backpackinglight","2025-12","material","Dyneema/DCF",9],["backpackinglight","2025-12","material","Gore-Tex",1],["backpackinglight","2025-12","material","PrimaLoft/合成絨",3],["backpackinglight","2025-12","material","eVent/Pertex/其他薄膜",5],["backpackinglight","2025-12","material","合成纖維/聚酯",13],["backpackinglight","2025-12","material","尼龍",7],["backpackinglight","2025-12","material","抓絨",1],["backpackinglight","2025-12","material","棉",2],["backpackinglight","2025-12","material","羽絨",12],["backpackinglight","2025-12","material","軟殼",3],["backpackinglight","2025-12","need","保暖",74],["backpackinglight","2025-12","need","可收納",1],["backpackinglight","2025-12","need","耐磨/耐用",4],["backpackinglight","2025-12","need","舒適/柔軟",9],["backpackinglight","2025-12","need","輕量",12],["backpackinglight","2025-12","need","透氣/排汗",21],["backpackinglight","2025-12","need","速乾",1],["backpackinglight","2025-12","need","防水",31],["backpackinglight","2025-12","need","防風",3],["backpackinglight","2026-01","material","Dyneema/DCF",3],["backpackinglight","2026-01","material","合成纖維/聚酯",11],["backpackinglight","2026-01","material","尼龍",8],["backpackinglight","2026-01","material","抓絨",7],["backpackinglight","2026-01","material","棉",2],["backpackinglight","2026-01","material","羊毛(一般)",9],["backpackinglight","2026-01","material","美麗諾羊毛",5],["backpackinglight","2026-01","material","羽絨",7],["backpackinglight","2026-01","material","軟殼",1],["backpackinglight","2026-01","need","保暖",31],["backpackinglight","2026-01","need","可收納",2],["backpackinglight","2026-01","need","耐磨/耐用",2],["backpackinglight","2026-01","need","舒適/柔軟",9],["backpackinglight","2026-01","need","輕量",5],["backpackinglight","2026-01","need","透氣/排汗",12],["backpackinglight","2026-01","need","速乾",1],["backpackinglight","2026-01","need","防水",18],["backpackinglight","2026-02","material","Dyneema/DCF",7],["backpackinglight","2026-02","material","eVent/Pertex/其他薄膜",3],["backpackinglight","2026-02","material","合成纖維/聚酯",8],["backpackinglight","2026-02","material","尼龍",7],["backpackinglight","2026-02","material","抓絨",3],["backpackinglight","2026-02","material","棉",4],["backpackinglight","2026-02","material","羊毛(一般)",8],["backpackinglight","2026-02","material","美麗諾羊毛",9],["backpackinglight","2026-02","material","羽絨",8],["backpackinglight","2026-02","material","軟殼",2],["backpackinglight","2026-02","need","保暖",17],["backpackinglight","2026-02","need","可收納",4],["backpackinglight","2026-02","need","抗臭/控味",11],["backpackinglight","2026-02","need","耐磨/耐用",3],["backpackinglight","2026-02","need","舒適/柔軟",17],["backpackinglight","2026-02","need","輕量",19],["backpackinglight","2026-02","need","透氣/排汗",26],["backpackinglight","2026-02","need","防水",24],["backpackinglight","2026-02","need","防風",1],["backpackinglight","2026-03","material","Dyneema/DCF",9],["backpackinglight","2026-03","material","Gore-Tex",2],["backpackinglight","2026-03","material","eVent/Pertex/其他薄膜",3],["backpackinglight","2026-03","material","合成纖維/聚酯",7],["backpackinglight","2026-03","material","尼龍",11],["backpackinglight","2026-03","material","抓絨",7],["backpackinglight","2026-03","material","橡膠/氯丁橡膠",1],["backpackinglight","2026-03","material","羊毛(一般)",2],["backpackinglight","2026-03","material","美麗諾羊毛",1],["backpackinglight","2026-03","material","羽絨",10],["backpackinglight","2026-03","material","軟殼",1],["backpackinglight","2026-03","need","保暖",17],["backpackinglight","2026-03","need","可收納",1],["backpackinglight","2026-03","need","抗臭/控味",1],["backpackinglight","2026-03","need","耐磨/耐用",4],["backpackinglight","2026-03","need","舒適/柔軟",4],["backpackinglight","2026-03","need","輕量",39],["backpackinglight","2026-03","need","透氣/排汗",7],["backpackinglight","2026-03","need","速乾",2],["backpackinglight","2026-03","need","防水",29],["backpackinglight","2026-03","need","防風",1],["backpackinglight","2026-04","material","Dyneema/DCF",2],["backpackinglight","2026-04","material","Gore-Tex",1],["backpackinglight","2026-04","material","合成纖維/聚酯",11],["backpackinglight","2026-04","material","尼龍",11],["backpackinglight","2026-04","material","羽絨",1],["backpackinglight","2026-04","need","可收納",1],["backpackinglight","2026-04","need","耐磨/耐用",3],["backpackinglight","2026-04","need","舒適/柔軟",2],["backpackinglight","2026-04","need","輕量",7],["backpackinglight","2026-04","need","透氣/排汗",7],["backpackinglight","2026-04","need","防水",12],["backpackinglight","2026-05","material","合成纖維/聚酯",2],["backpackinglight","2026-05","material","尼龍",1],["backpackinglight","2026-05","material","棉",2],["backpackinglight","2026-05","material","羊毛(一般)",3],["backpackinglight","2026-05","material","美麗諾羊毛",1],["backpackinglight","2026-05","need","保暖",7],["backpackinglight","2026-05","need","可收納",1],["backpackinglight","2026-05","need","抗臭/控味",1],["backpackinglight","2026-05","need","耐磨/耐用",2],["backpackinglight","2026-05","need","舒適/柔軟",7],["backpackinglight","2026-05","need","輕量",7],["backpackinglight","2026-05","need","透氣/排汗",12],["backpackinglight","2026-05","need","防水",4],["backpackinglight","2026-06","material","Dyneema/DCF",3],["backpackinglight","2026-06","material","PrimaLoft/合成絨",2],["backpackinglight","2026-06","material","eVent/Pertex/其他薄膜",4],["backpackinglight","2026-06","material","合成纖維/聚酯",6],["backpackinglight","2026-06","material","尼龍",4],["backpackinglight","2026-06","material","抓絨",3],["backpackinglight","2026-06","material","羽絨",1],["backpackinglight","2026-06","need","保暖",22],["backpackinglight","2026-06","need","可收納",1],["backpackinglight","2026-06","need","耐磨/耐用",1],["backpackinglight","2026-06","need","舒適/柔軟",2],["backpackinglight","2026-06","need","輕量",9],["backpackinglight","2026-06","need","透氣/排汗",11],["backpackinglight","2026-06","need","防水",5],["backpackinglight","2026-06","need","防風",1],["backpackinglight","2026-07","material","Cordura",2],["backpackinglight","2026-07","material","合成纖維/聚酯",1],["backpackinglight","2026-07","material","尼龍",9],["backpackinglight","2026-07","material","抓絨",5],["backpackinglight","2026-07","material","軟殼",1],["backpackinglight","2026-07","need","保暖",6],["backpackinglight","2026-07","need","耐磨/耐用",1],["backpackinglight","2026-07","need","舒適/柔軟",4],["backpackinglight","2026-07","need","輕量",5],["backpackinglight","2026-07","need","透氣/排汗",5],["backpackinglight","2026-07","need","防水",3],["backpackinglight","2026-07","need","防風",2],["backpackinglight","2026-08","material","Cordura",1],["backpackinglight","2026-08","material","Dyneema/DCF",50],["backpackinglight","2026-08","material","合成纖維/聚酯",1],["backpackinglight","2026-08","material","尼龍",8],["backpackinglight","2026-08","material","軟殼",1],["backpackinglight","2026-08","need","保暖",12],["backpackinglight","2026-08","need","可收納",1],["backpackinglight","2026-08","need","耐磨/耐用",6],["backpackinglight","2026-08","need","舒適/柔軟",16],["backpackinglight","2026-08","need","輕量",29],["backpackinglight","2026-08","need","透氣/排汗",9],["backpackinglight","2026-08","need","防水",34],["backpackinglight","2026-09","material","Cordura",1],["backpackinglight","2026-09","material","Dyneema/DCF",6],["backpackinglight","2026-09","material","Gore-Tex",1],["backpackinglight","2026-09","material","eVent/Pertex/其他薄膜",2],["backpackinglight","2026-09","material","合成纖維/聚酯",7],["backpackinglight","2026-09","material","尼龍",10],["backpackinglight","2026-09","material","抓絨",5],["backpackinglight","2026-09","material","棉",1],["backpackinglight","2026-09","material","美麗諾羊毛",3],["backpackinglight","2026-09","material","羽絨",13],["backpackinglight","2026-09","need","保暖",18],["backpackinglight","2026-09","need","可收納",6],["backpackinglight","2026-09","need","抗臭/控味",2],["backpackinglight","2026-09","need","耐磨/耐用",4],["backpackinglight","2026-09","need","輕量",20],["backpackinglight","2026-09","need","透氣/排汗",4],["backpackinglight","2026-09","need","防水",21]],"needs":["防水","透氣/排汗","保暖","輕量","靜音","抗臭/控味","耐磨/耐用","速乾","舒適/柔軟","防風","可收納"],"materials":["美麗諾羊毛","羊毛(一般)","合成纖維/聚酯","尼龍","Cordura","Dyneema/DCF","羽絨","PrimaLoft/合成絨","Gore-Tex","eVent/Pertex/其他薄膜","軟殼","抓絨","棉","皮革","橡膠/氯丁橡膠","銀離子/抗菌處理"]};
+const NS = "http://www.w3.org/2000/svg";
+const SRC = { all: "全部", "24hourcampfire": "24hourcampfire", backpackinglight: "BackpackingLight" };
+const OPTS = {
+  src: [["all", "全部"], ["24hourcampfire", "Campfire"], ["backpackinglight", "BackpackingLight"]],
+  kind: [["need", "性能需求"], ["material", "布料材料"]],
+  metric: [["rate", "每百則提及率"], ["count", "提及次數"]],
+  scale: [["global", "共用"], ["row", "各列"]],
+};
+const state = { src: "all", kind: "need", metric: "rate", scale: "global", item: null };
+const LOW_Y = 30, LOW_M = 10;
+const $ = (id) => document.getElementById(id);
+const el = (tag, attrs = {}, parent) => {
+  const n = document.createElementNS(NS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(n);
+  return n;
+};
+const fmt = (n) => (Math.round(n * 10) / 10).toLocaleString("en-US");
+
+/* ---------- 資料彙整 ---------- */
+function aggregate() {
+  const useSrc = (s) => state.src === "all" || state.src === s;
+  const py = {}, pm = {};
+  for (const [s, ym, n] of DATA.posts) {
+    if (!useSrc(s)) continue;
+    pm[ym] = (pm[ym] || 0) + n;
+    const y = ym.slice(0, 4);
+    py[y] = (py[y] || 0) + n;
+  }
+  const my = {}, mm = {}, tot = {};
+  for (const [s, ym, k, item, n] of DATA.mentions) {
+    if (!useSrc(s) || k !== state.kind) continue;
+    const y = ym.slice(0, 4);
+    (my[item] ||= {})[y] = (my[item][y] || 0) + n;
+    (mm[item] ||= {})[ym] = (mm[item][ym] || 0) + n;
+    tot[item] = (tot[item] || 0) + n;
+  }
+  const names = state.kind === "need" ? DATA.needs : DATA.materials;
+  const items = names.filter((i) => tot[i] > 0).sort((a, b) => tot[b] - tot[a]);
+  const ys = Object.keys(py).map(Number);
+  const years = [];
+  for (let y = Math.min(...ys); y <= Math.max(...ys); y++) years.push(String(y));
+  return { py, pm, my, mm, tot, items, years };
+}
+
+// 色階上限取第 90 百分位，避免少數極端值把其他格子壓成同一種淺色
+const pctl = (arr, q) => {
+  const a = arr.filter((v) => v > 0).sort((x, y) => x - y);
+  return a.length ? a[Math.floor(q * (a.length - 1))] : 0;
+};
+const val = (count, posts) => (state.metric === "count" ? count : posts > 0 ? (count / posts) * 100 : null);
+const bin = (v, max) => (v <= 0 ? -1 : Math.min(6, Math.floor((v / (max || 1)) * 6.999)));
+const fillFor = (b) => (b < 0 ? "var(--zero)" : `var(--s${b})`);
+
+/* ---------- 提示框 ---------- */
+const tip = $("tip");
+function showTip(ev, title, value, rows) {
+  tip.replaceChildren();
+  const t = document.createElement("div"); t.className = "tt"; t.textContent = title;
+  const v = document.createElement("div"); v.className = "tv"; v.textContent = value;
+  tip.append(t, v);
+  for (const [a, b] of rows) {
+    const r = document.createElement("div"); r.className = "tr";
+    const x = document.createElement("span"); x.textContent = a;
+    const y = document.createElement("span"); y.textContent = b;
+    r.append(x, y); tip.appendChild(r);
+  }
+  tip.hidden = false;
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + w > innerWidth - 8) x = ev.clientX - w - 14;
+  if (y + h > innerHeight - 8) y = ev.clientY - h - 14;
+  tip.style.left = Math.max(8, x) + "px";
+  tip.style.top = Math.max(8, y) + "px";
+}
+const hideTip = () => { tip.hidden = true; };
+
+/* ---------- 年度熱度圖 ---------- */
+function drawYear(A) {
+  const host = $("year-chart");
+  host.replaceChildren();
+  const avail = host.parentElement.clientWidth || 700;
+  const narrow = avail < 560;
+  const labelW = narrow ? 78 : 96, totW = narrow ? 40 : 52, rowH = 28, headH = 22, gap = 2;
+  const n = A.years.length;
+  const cw = Math.min(40, Math.max(narrow ? 15 : 22, Math.floor((avail - labelW - totW) / n)));
+  const W = labelW + n * cw + totW;
+  const stripH = 64, stripTop = headH + A.items.length * rowH + 14;
+  const H = stripTop + stripH + 6;
+  const svg = el("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "img",
+    "aria-label": "各年度各項目的提及熱度，詳細數值見下方表格" }, host);
+  const short = cw < 30;
+
+  // 色階上限
+  const cellVal = (it, y) => val((A.my[it] || {})[y] || 0, A.py[y] || 0);
+  const okCell = (y) => (A.py[y] || 0) >= LOW_Y;
+  const pool = [];
+  for (const it of A.items) for (const y of A.years) if (okCell(y) || state.metric === "count") pool.push(cellVal(it, y) || 0);
+  const gmax = pctl(pool, 0.9);
+
+  A.years.forEach((y, i) => {
+    if (!short || i % 2 === 0 || y === A.years[n - 1]) {
+      const t = el("text", { x: labelW + i * cw + cw / 2, y: 14, "text-anchor": "middle", class: "t-muted" }, svg);
+      t.textContent = short ? "’" + y.slice(2) : y;
+    }
+  });
+
+  A.items.forEach((it, r) => {
+    const y0 = headH + r * rowH;
+    const sel = it === state.item;
+    if (sel) el("rect", { x: 0, y: y0, width: W, height: rowH, rx: 6, fill: "var(--hl)" }, svg);
+    const lab = el("text", { x: labelW - 10, y: y0 + rowH / 2 + 4.5, "text-anchor": "end", class: sel ? "t-ink" : "t-ink2" }, svg);
+    lab.textContent = it;
+    lab.style.cursor = "pointer";
+    lab.addEventListener("click", () => selectItem(it));
+    let rmax = 0;
+    if (state.scale === "row") for (const y of A.years) if (okCell(y) || state.metric === "count") rmax = Math.max(rmax, cellVal(it, y) || 0);
+    const max = state.scale === "row" ? rmax : gmax;
+    A.years.forEach((y, i) => {
+      const c = (A.my[it] || {})[y] || 0, p = A.py[y] || 0;
+      const v = cellVal(it, y);
+      const g = el("rect", {
+        x: labelW + i * cw + gap / 2, y: y0 + gap / 2, width: cw - gap, height: rowH - gap, rx: 3,
+        class: "cell", fill: p === 0 ? "none" : fillFor(v == null ? -1 : bin(v, max)),
+        opacity: p > 0 && p < LOW_Y && state.metric === "rate" ? 0.42 : 1,
+      }, svg);
+      if (p === 0) { g.setAttribute("stroke", "var(--grid)"); g.setAttribute("stroke-width", 1); }
+      g.addEventListener("pointermove", (ev) => {
+        g.setAttribute("stroke", "var(--ring)"); g.setAttribute("stroke-width", 1.5);
+        showTip(ev, `${y} 年 · ${it}`, p === 0 ? "當年無貼文" : state.metric === "rate" ? `每百則 ${fmt(v)}` : `${c} 次`, [
+          ["提及次數", String(c)], ["貼文數", String(p)],
+          ...(state.metric === "rate" || p === 0 ? [] : [["每百則", fmt(v)]]),
+          ...(p > 0 && p < LOW_Y ? [["注意", "樣本偏少"]] : []),
+        ]);
+      });
+      g.addEventListener("pointerleave", () => { hideTip(); if (p === 0) { g.setAttribute("stroke", "var(--grid)"); g.setAttribute("stroke-width", 1); } else g.removeAttribute("stroke"); });
+      g.addEventListener("click", () => selectItem(it));
+    });
+    const tt = el("text", { x: labelW + n * cw + 12, y: y0 + rowH / 2 + 4, class: "t-num" }, svg);
+    tt.textContent = fmt(A.tot[it]);
+  });
+  const th = el("text", { x: labelW + n * cw + 12, y: 14, class: "t-muted" }, svg);
+  th.textContent = "總次數";
+
+  // 貼文量條：對齊各年欄位，讓讀者看到每欄的樣本多寡
+  const pmax = Math.max(...A.years.map((y) => A.py[y] || 0), 1);
+  el("line", { x1: labelW, x2: labelW + n * cw, y1: stripTop + stripH, y2: stripTop + stripH, stroke: "var(--axis)", "stroke-width": 1 }, svg);
+  const sl = el("text", { x: labelW - 10, y: stripTop + stripH - 4, "text-anchor": "end", class: "t-muted" }, svg);
+  sl.textContent = "貼文數";
+  const sm = el("text", { x: labelW - 10, y: stripTop + 10, "text-anchor": "end", class: "t-muted" }, svg);
+  sm.textContent = fmt(pmax);
+  A.years.forEach((y, i) => {
+    const p = A.py[y] || 0;
+    const h = Math.round((p / pmax) * (stripH - 4));
+    const bw = Math.min(cw - gap * 2, 24);
+    const x = labelW + i * cw + (cw - bw) / 2;
+    if (!h) return;
+    const bar = el("path", {
+      d: `M${x},${stripTop + stripH} V${stripTop + stripH - h + 4} q0,-4 4,-4 h${bw - 8} q4,0 4,4 V${stripTop + stripH} Z`,
+      fill: "var(--s3)", opacity: p < LOW_Y ? 0.42 : 1, class: "cell",
+    }, svg);
+    bar.addEventListener("pointermove", (ev) => showTip(ev, `${y} 年`, `${p} 則貼文`, p < LOW_Y ? [["注意", "樣本偏少"]] : []));
+    bar.addEventListener("pointerleave", hideTip);
+  });
+  return gmax;
+}
+
+/* ---------- 月份月曆圖（年 × 月） ---------- */
+function drawMonth(A) {
+  const host = $("month-chart");
+  host.replaceChildren();
+  const it = state.item;
+  // 只列貼文數足夠的年份，其餘年份在年度圖已可看到
+  const years = A.years.filter((y) => A.py[y] >= LOW_Y).slice().reverse();
+  const avail = host.parentElement.clientWidth || 700;
+  const labelW = 48, headH = 22, ch = 26, gap = 2;
+  const cw = Math.min(52, Math.max(30, Math.floor((avail - labelW - 4) / 12)));
+  const W = labelW + 12 * cw + 4, H = headH + years.length * ch + 4;
+  const svg = el("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "img",
+    "aria-label": `${it} 在各年各月的提及狀況，數值見下方表格` }, host);
+  for (let m = 1; m <= 12; m++) {
+    const t = el("text", { x: labelW + (m - 1) * cw + cw / 2, y: 14, "text-anchor": "middle", class: "t-muted" }, svg);
+    t.textContent = m + "月";
+  }
+  const cellV = (ym) => val(((A.mm[it] || {})[ym]) || 0, A.pm[ym] || 0);
+  const pool = [];
+  for (const y of years) for (let m = 1; m <= 12; m++) {
+    const ym = `${y}-${String(m).padStart(2, "0")}`, p = A.pm[ym] || 0;
+    if (state.metric === "count" || p >= LOW_M) pool.push(cellV(ym) || 0);
+  }
+  const max = pctl(pool, 0.9);
+  years.forEach((y, r) => {
+    const y0 = headH + r * ch;
+    const lt = el("text", { x: labelW - 8, y: y0 + ch / 2 + 4.5, "text-anchor": "end", class: "t-ink2" }, svg);
+    lt.textContent = y;
+    for (let m = 1; m <= 12; m++) {
+      const ym = `${y}-${String(m).padStart(2, "0")}`;
+      const c = ((A.mm[it] || {})[ym]) || 0, p = A.pm[ym] || 0, v = cellV(ym);
+      const g = el("rect", {
+        x: labelW + (m - 1) * cw + gap / 2, y: y0 + gap / 2, width: cw - gap, height: ch - gap, rx: 3, class: "cell",
+        fill: p === 0 ? "none" : fillFor(v == null ? -1 : bin(v, max)),
+        opacity: p > 0 && p < LOW_M && state.metric === "rate" ? 0.42 : 1,
+      }, svg);
+      if (p === 0) { g.setAttribute("stroke", "var(--grid)"); g.setAttribute("stroke-width", 1); }
+      g.addEventListener("pointermove", (ev) => {
+        g.setAttribute("stroke", "var(--ring)"); g.setAttribute("stroke-width", 1.5);
+        showTip(ev, `${y} 年 ${m} 月 · ${it}`, p === 0 ? "當月無貼文" : state.metric === "rate" ? `每百則 ${fmt(v)}` : `${c} 次`, [
+          ["提及次數", String(c)], ["貼文數", String(p)],
+          ...(p > 0 && p < LOW_M ? [["注意", "樣本偏少"]] : []),
+        ]);
+      });
+      g.addEventListener("pointerleave", () => { hideTip(); if (p === 0) { g.setAttribute("stroke", "var(--grid)"); g.setAttribute("stroke-width", 1); } else g.removeAttribute("stroke"); });
+    }
+  });
+  return max;
+}
+
+/* ---------- 圖例、表格、文字 ---------- */
+function legend(host, max, low) {
+  host.replaceChildren();
+  const a = document.createElement("span"); a.textContent = "少";
+  const r = document.createElement("span"); r.className = "ramp";
+  for (let i = 0; i < 7; i++) { const s = document.createElement("i"); s.style.background = `var(--s${i})`; r.appendChild(s); }
+  const b = document.createElement("span");
+  b.textContent = `多（${state.metric === "rate" ? "每百則 " + fmt(max) : fmt(max) + " 次"} 以上，更高的也用最右邊這格）`;
+  const wrap = document.createElement("span"); wrap.className = "ramp"; wrap.style.gap = "8px";
+  wrap.append(a, r, b);
+  host.appendChild(wrap);
+  const z = document.createElement("span");
+  z.innerHTML = '<i class="sw" style="background:var(--zero)"></i>0 次';
+  const n = document.createElement("span");
+  n.innerHTML = '<i class="sw" style="border:1px solid var(--grid)"></i>無貼文';
+  host.append(z, n);
+  if (state.metric === "rate") {
+    const l = document.createElement("span");
+    l.innerHTML = '<i class="sw" style="background:var(--s3);opacity:.42"></i>';
+    l.append(`樣本偏少（${low} 則以下）`);
+    host.appendChild(l);
+  }
+}
+
+function drawTable(A) {
+  const it = state.item;
+  const t = $("tbl");
+  t.replaceChildren();
+  const head = t.createTHead().insertRow();
+  for (const h of ["年份", "貼文數", "提及次數", "每百則"]) { const c = document.createElement("th"); c.textContent = h; head.appendChild(c); }
+  const body = t.createTBody();
+  for (const y of A.years.slice().reverse()) {
+    const p = A.py[y] || 0;
+    if (!p) continue;
+    const c = (A.my[it] || {})[y] || 0;
+    const row = body.insertRow();
+    [y, p, c, fmt((c / p) * 100)].forEach((v) => { row.insertCell().textContent = String(v); });
+  }
+}
+
+function selectItem(it) {
+  state.item = it;
+  $("item").value = it;
+  render();
+}
+
+function render() {
+  const A = aggregate();
+  if (!A.items.includes(state.item)) state.item = A.items[0];
+  const sel = $("item");
+  sel.replaceChildren();
+  for (const it of A.items) { const o = document.createElement("option"); o.value = it; o.textContent = it; sel.appendChild(o); }
+  sel.value = state.item;
+
+  const total = Object.values(A.py).reduce((a, b) => a + b, 0);
+  $("lede").textContent = `${SRC[state.src]}：${total.toLocaleString("en-US")} 則貼文，${A.years[0]}–${A.years[A.years.length - 1]} 年。` +
+    `顏色越強，代表那一年有越多討論提到這項${state.kind === "need" ? "性能需求" : "布料材料"}。`;
+  $("sub-year").textContent = state.metric === "rate"
+    ? "每格 = 該年提到該項目的句子數 ÷ 當年貼文數 × 100。貼文太少的年份會變淡，下方長條顯示每年的貼文數。點一列可在下方看月份分布。"
+    : "每格 = 該年提到該項目的句子數。貼文多的年份數字自然偏高，請對照下方的貼文數長條。";
+  $("h-month").textContent = `月份分布：${state.item}`;
+  $("sub-month").textContent = "每列是一年，每格是一個月。";
+
+  const ymax = drawYear(A);
+  const mmax = drawMonth(A);
+  if (state.scale === "row") {
+    const l = $("legend-year"); legend(l, ymax, LOW_Y);
+    l.firstChild.lastChild.textContent = "多（各列自己的最大值）";
+  } else legend($("legend-year"), ymax, LOW_Y);
+  legend($("legend-month"), mmax, LOW_M);
+  drawTable(A);
+}
+
+/* ---------- 篩選控制 ---------- */
+document.querySelectorAll(".seg").forEach((seg) => {
+  const k = seg.dataset.k;
+  const paint = () => seg.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === state[k])));
+  for (const [v, label] of OPTS[k]) {
+    const b = document.createElement("button");
+    b.type = "button"; b.dataset.v = v; b.textContent = label;
+    b.addEventListener("click", () => { state[k] = v; if (k === "kind") state.item = null; paint(); render(); });
+    seg.appendChild(b);
+  }
+  paint();
+});
+$("item").addEventListener("change", (e) => selectItem(e.target.value));
+$("note").textContent = "方法：兩個論壇的公開討論串，以句子為單位做關鍵字比對（句子需同時出現布製產品與性能需求或材料才計入），同一討論串內重複引用只計一次。這是詞彙比對，不是語意判斷。BackpackingLight 只抓了回覆較多、且標題含布料或裝備關鍵字的 160 個討論串，每串最多 3 頁，不是全站。";
+new ResizeObserver(() => { if (state.item) { const A = aggregate(); drawYear(A); } }).observe(document.querySelector(".wrap"));
+render();
+</script>
