@@ -109,20 +109,6 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
     <div class="group"><span>色階</span><div class="seg" data-k="scale"></div></div>
   </div>
 
-  <aside class="help" aria-label="圖表說明">
-    <h2>怎麼讀這張圖</h2>
-    <dl>
-      <dt>顏色深淺</dt>
-      <dd>顏色越醒目，代表討論越多。淺色模式下是越深越多；深色模式下是越亮、越淺越多。圖例會隨模式自動對應，以圖例為準。</dd>
-      <dt>色階：共用</dt>
-      <dd>所有格子用同一把尺，不同項目之間可以直接比較（例如防水比靜音多）。冷門項目整列會偏淡。</dd>
-      <dt>色階：各列</dt>
-      <dd>每一列用自己的最大值當尺，適合看單一項目在哪幾年變熱。不同列的顏色不能互相比較。</dd>
-      <dt>變淡的格子</dt>
-      <dd>當年貼文太少（年度 30 則以下、月份 10 則以下），比率容易失真，所以降低顯示強度。</dd>
-    </dl>
-  </aside>
-
   <section class="card" aria-labelledby="h-year">
     <div class="head">
       <div>
@@ -149,6 +135,20 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
       <div class="scroll"><table id="tbl"></table></div>
     </details>
   </section>
+
+  <aside class="help" aria-label="圖表說明">
+    <h2>怎麼讀這張圖</h2>
+    <dl>
+      <dt>顏色深淺</dt>
+      <dd>顏色越醒目，代表討論越多。淺色模式下是越深越多；深色模式下是越亮、越淺越多。圖例會隨模式自動對應，以圖例為準。</dd>
+      <dt>色階：共用</dt>
+      <dd>所有格子用同一把尺，不同項目之間可以直接比較（例如防水比靜音多）。冷門項目整列會偏淡。</dd>
+      <dt>色階：各列</dt>
+      <dd>每一列用自己的最大值當尺，適合看單一項目在哪幾年變熱。不同列的顏色不能互相比較。</dd>
+      <dt>變淡的格子</dt>
+      <dd>當年貼文太少（年度 30 則以下、月份 10 則以下），比率容易失真，所以降低顯示強度。</dd>
+    </dl>
+  </aside>
 
   <section class="concl" aria-labelledby="h-concl">
     <h2 id="h-concl">結論</h2>
